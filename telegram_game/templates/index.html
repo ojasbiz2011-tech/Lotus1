@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Dense Wood Escape</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body { margin: 0; padding: 0; background-color: rgb(250, 242, 230); font-family: 'Verdana', sans-serif; overflow: hidden; user-select: none; }
+        .screen { display: none; width: 100%; height: 100vh; position: absolute; top: 0; left: 0; flex-direction: column; align-items: center; justify-content: center; }
+        .active { display: flex; }
+        h1 { color: rgb(80, 50, 30); margin-bottom: 10px; font-size: 24px; font-weight: bold; }
+        .btn { background: rgb(101, 67, 33); color: white; padding: 15px 30px; border-radius: 8px; font-weight: bold; margin: 10px; cursor: pointer; border: 2px solid rgb(80, 50, 30); box-shadow: 0 4px 6px rgba(0,0,0,0.3); font-size: 16px; }
+        .card { background: rgb(250, 242, 230); border: 4px solid rgb(101, 67, 33); padding: 20px; border-radius: 12px; width: 80%; text-align: center; margin-bottom: 15px; color: rgb(80, 50, 30); }
+        canvas { background-color: transparent; touch-action: none; }
+    </style>
+</head>
+<body>
+    <div id="screen-home" class="screen active">
+        <h1>Dense Wood Escape</h1>
+        <div class="card">
+            <h3>Weekly Prize Pool</h3>
+            <h2 style="color: rgb(0, 150, 0);" id="pool-display">...</h2>
+            <p>Rank #<span id="rank-display">-</span></p>
+        </div>
+        <button class="btn" onclick="checkAdsAndPlay()">▶ Play Puzzle</button>
+        <button class="btn" onclick="showScreen('screen-wallet')">💰 Earnings</button>
+    </div>
+
+    <div id="screen-game" class="screen">
+        <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <div id="screen-ads" class="screen">
+        <div class="card">
+            <h1>Skip Level?</h1>
+            <p>Watch Ad to get a new puzzle.</p>
+            <button class="btn" onclick="watchAd()">📺 Watch Ad</button>
+        </div>
+    </div>
+
+    <div id="screen-wallet" class="screen"><div class="card"><h1>Earnings</h1><h2 id="wallet-bal">₹0.00</h2></div><button class="btn" onclick="showScreen('screen-home')">Back</button></div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        const userId = tg.initDataUnsafe?.user?.id || 12345;
+        const GRID_SIZE = 6;
+        const GAP = 3; 
+        const C_BG = "rgb(250, 242, 230)";
+        const C_FRAME = "rgb(101, 67, 33)";
+        const C_WELL = "rgb(180, 130, 70)";
+        const C_RED = "rgb(205, 70, 70)";
+        const C_H = "rgb(235, 210, 150)";
+        const C_V = "rgb(210, 180, 130)";
+        const C_TEXT = "rgb(80, 50, 30)";
+
+        let canvas = document.getElementById("gameCanvas");
+        let ctx = canvas.getContext("2d");
+        
+        // Dynamic Sizing
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        let maxW = window.innerWidth * 0.90; 
+        let maxH = window.innerHeight * 0.75; 
+        let tileW = maxW / GRID_SIZE;
+        let tileH = maxH / GRID_SIZE;
+        let TILE_SIZE = Math.floor(Math.min(tileW, tileH));
+        let GRID_OFFSET_X = (canvas.width - (GRID_SIZE * TILE_SIZE)) / 2;
+        let GRID_OFFSET_Y = (canvas.height - (GRID_SIZE * TILE_SIZE)) / 2 + 30;
+
+        let gameState = { blocks: [], moves: [], moveCount: 0, won: false };
+        let selectedBlock = null;
+        let dragOffset = { x:0, y:0 };
+
+        function showScreen(id) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            if(id === 'screen-home') loadUserData();
+            if(id === 'screen-game') requestAnimationFrame(gameLoop);
+        }
+
+        async function startGame() {
+            showScreen('screen-game');
+            // Optimistic Loading (don't wait for server to switch screen)
+            gameState.blocks = []; 
+            let res = await fetch('/api/generate_level');
+            let levelData = await res.json();
+            
+            gameState.blocks = levelData.map((b, i) => ({
+                id: i, col: b.col, row: b.row, initialCol: b.col, initialRow: b.row, length: b.length, orientation: b.orientation, is_target: b.is_target,
+                rect: calculateRect(b.col, b.row, b.length, b.orientation)
+            }));
+            gameState.moves = []; gameState.moveCount = 0; gameState.won = false;
+        }
+
+        function calculateRect(col, row, length, orientation) {
+            let w = orientation === 'H' ? length * TILE_SIZE - (GAP * 2) : TILE_SIZE - (GAP * 2);
+            let h = orientation === 'V' ? length * TILE_SIZE - (GAP * 2) : TILE_SIZE - (GAP * 2);
+            let x = GRID_OFFSET_X + (col * TILE_SIZE) + GAP;
+            let y = GRID_OFFSET_Y + (row * TILE_SIZE) + GAP;
+            return { x, y, w, h };
+        }
+
+        function drawBlock(b) {
+            let color = b.is_target ? C_RED : (b.orientation === 'H' ? C_H : C_V);
+            let { x, y, w, h } = b.rect;
+            ctx.fillStyle = "rgba(0, 0, 0, 0.16)"; ctx.beginPath(); ctx.roundRect(x+4, y+4, w, h, 6); ctx.fill();
+            ctx.fillStyle = color; ctx.beginPath(); ctx.roundRect(x, y, w, h, 6); ctx.fill();
+            ctx.lineWidth = 2; ctx.strokeStyle = "rgb(255, 255, 255)"; ctx.beginPath();
+            ctx.moveTo(x+3, y+2); ctx.lineTo(x+w-3, y+2); ctx.moveTo(x+2, y+3); ctx.lineTo(x+2, y+h-3); ctx.stroke();
+            ctx.strokeStyle = "rgb(0, 0, 0)"; ctx.beginPath();
+            ctx.moveTo(x+3, y+h-2); ctx.lineTo(x+w-3, y+h-2); ctx.moveTo(x+w-2, y+3); ctx.lineTo(x+w-2, y+h-3); ctx.stroke();
+        }
+
+        function gameLoop() {
+            ctx.fillStyle = C_BG; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            let frameX = GRID_OFFSET_X - 15; let frameY = GRID_OFFSET_Y - 15; let frameSize = GRID_SIZE * TILE_SIZE + 30;
+            ctx.fillStyle = C_FRAME; ctx.beginPath(); ctx.roundRect(frameX, frameY, frameSize, frameSize, 12); ctx.fill();
+            ctx.fillStyle = C_WELL; ctx.beginPath(); ctx.roundRect(frameX+10, frameY+10, frameSize-20, frameSize-20, 4); ctx.fill();
+            ctx.fillStyle = "black"; let exitY = GRID_OFFSET_Y + (2 * TILE_SIZE) + 5; ctx.fillRect(frameX + frameSize - 20, exitY, 25, TILE_SIZE - 10);
+            
+            if(gameState.blocks.length === 0) {
+                 ctx.fillStyle = C_TEXT; ctx.font = "bold 24px Verdana"; ctx.fillText("Generating...", canvas.width/2 - 80, canvas.height/2);
+            } else {
+                 gameState.blocks.forEach(drawBlock);
+            }
+
+            // TEXT UI
+            ctx.fillStyle = C_TEXT; ctx.font = "bold 24px Verdana"; 
+            let text = `Moves: ${gameState.moveCount}`; 
+            ctx.fillText(text, (canvas.width - ctx.measureText(text).width)/2, 80);
+            
+            // "Next" Button (Top Right)
+            ctx.font = "bold 18px Verdana"; 
+            ctx.fillStyle = C_RED; 
+            ctx.fillText("Next >", canvas.width - 90, 50);
+
+            if(gameState.won) { 
+                ctx.fillStyle = "rgb(0, 150, 0)"; ctx.font = "bold 40px Verdana"; 
+                ctx.fillText("SOLVED!", (canvas.width/2) - 80, 150); 
+            }
+            if(document.getElementById('screen-game').classList.contains('active')) { requestAnimationFrame(gameLoop); }
+        }
+
+        function handleStart(x, y) {
+            if(gameState.won) return;
+            // BUTTON CLICK: NEXT >
+            if(y < 80 && x > canvas.width - 100) { 
+                 showScreen('screen-ads'); 
+                 return; 
+            }
+
+            for(let b of gameState.blocks) {
+                if(x >= b.rect.x && x <= b.rect.x + b.rect.w && y >= b.rect.y && y <= b.rect.y + b.rect.h) {
+                    selectedBlock = b; dragOffset.x = b.rect.x - x; dragOffset.y = b.rect.y - y;
+                    b.startCol = b.col; b.startRow = b.row; break;
+                }
+            }
+        }
+
+        function handleMove(x, y) {
+            if(!selectedBlock) return;
+            let sb = selectedBlock; let targetX = x + dragOffset.x; let targetY = y + dragOffset.y;
+            if (sb.orientation === 'H') {
+                let direction = targetX > sb.rect.x ? 1 : -1; let dist = Math.abs(targetX - sb.rect.x);
+                for(let i=0; i<dist; i++) { let testRect = { ...sb.rect, x: sb.rect.x + direction }; if (!checkCollisionVisual(testRect, sb)) sb.rect.x += direction; else break; }
+            } else {
+                let direction = targetY > sb.rect.y ? 1 : -1; let dist = Math.abs(targetY - sb.rect.y);
+                for(let i=0; i<dist; i++) { let testRect = { ...sb.rect, y: sb.rect.y + direction }; if (!checkCollisionVisual(testRect, sb)) sb.rect.y += direction; else break; }
+            }
+        }
+
+        function handleEnd() {
+            if(!selectedBlock) return;
+            let sb = selectedBlock;
+            let idealCol = Math.round((sb.rect.x - GRID_OFFSET_X) / TILE_SIZE); let idealRow = Math.round((sb.rect.y - GRID_OFFSET_Y) / TILE_SIZE);
+            if(sb.orientation === 'H') idealRow = sb.row; else idealCol = sb.col;
+            if(!checkCollisionGrid(idealCol, idealRow, sb, gameState.blocks)) { sb.col = idealCol; sb.row = idealRow; } else { sb.col = sb.startCol; sb.row = sb.startRow; }
+            sb.rect = calculateRect(sb.col, sb.row, sb.length, sb.orientation);
+            if(sb.col !== sb.startCol || sb.row !== sb.startRow) {
+                gameState.moveCount++; gameState.moves.push({ id: sb.id, col: sb.col, row: sb.row });
+                if(sb.is_target && sb.col === 4) { gameState.won = true; submitGame(); }
+            }
+            selectedBlock = null;
+        }
+
+        function checkCollisionVisual(rect, activeB) {
+            if (rect.x < GRID_OFFSET_X) return true; if (rect.x + rect.w > GRID_OFFSET_X + (GRID_SIZE * TILE_SIZE)) return true;
+            if (rect.y < GRID_OFFSET_Y) return true; if (rect.y + rect.h > GRID_OFFSET_Y + (GRID_SIZE * TILE_SIZE)) return true;
+            let hitbox = { x: rect.x+2, y: rect.y+2, w: rect.w-4, h: rect.h-4 };
+            for(let o of gameState.blocks) {
+                if (o.id === activeB.id) continue;
+                let oHit = { x: o.rect.x+2, y: o.rect.y+2, w: o.rect.w-4, h: o.rect.h-4 };
+                if (hitbox.x < oHit.x + oHit.w && hitbox.x + hitbox.w > oHit.x && hitbox.y < oHit.y + oHit.h && hitbox.y + hitbox.h > oHit.y) return true;
+            }
+            return false;
+        }
+
+        function checkCollisionGrid(c, r, b, allBlocks) {
+             if (c < 0 || r < 0) return true; if (b.orientation === 'H' && c + b.length > GRID_SIZE) return true; if (b.orientation === 'V' && r + b.length > GRID_SIZE) return true;
+             let cells = []; for(let i=0; i<b.length; i++) cells.push(b.orientation === 'H' ? `${c+i},${r}` : `${c},${r+i}`);
+             for(let o of allBlocks) {
+                 if(o.id === b.id) continue;
+                 for(let j=0; j<o.length; j++) { let ox = o.col + (o.orientation==='H'?j:0); let oy = o.row + (o.orientation==='V'?j:0); if(cells.includes(`${ox},${oy}`)) return true; }
+             }
+             return false;
+        }
+
+        canvas.addEventListener('mousedown', e => handleStart(e.clientX, e.clientY));
+        canvas.addEventListener('mousemove', e => handleMove(e.clientX, e.clientY));
+        canvas.addEventListener('mouseup', handleEnd);
+        canvas.addEventListener('touchstart', e => { e.preventDefault(); handleStart(e.touches[0].clientX, e.touches[0].clientY); }, {passive: false});
+        canvas.addEventListener('touchmove', e => { e.preventDefault(); handleMove(e.touches[0].clientX, e.touches[0].clientY); }, {passive: false});
+        canvas.addEventListener('touchend', handleEnd);
+
+        async function loadUserData() { try{ let res=await fetch(`/api/user/${userId}`); let d=await res.json(); document.getElementById('pool-display').innerText="₹"+(d.wallet*100).toFixed(2); document.getElementById('rank-display').innerText=d.rank; }catch(e){} }
+        async function checkAdsAndPlay() { try{ let res=await fetch(`/api/user/${userId}`); if((await res.json()).ads_watched>=1) startGame(); else showScreen('screen-ads'); }catch(e){showScreen('screen-ads');} }
+        function watchAd() { setTimeout(async()=>{ await fetch('/api/ads/confirm', {method:'POST', body:JSON.stringify({user_id:userId})}); startGame(); }, 1000); }
+        async function submitGame() { setTimeout(async () => { await fetch('/api/submit_game', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ user_id: userId, initial_level: gameState.blocks, moves: gameState.moves }) }); alert(`SOLVED!`); showScreen('screen-home'); }, 200); }
+    </script>
+</body>
+</html>
