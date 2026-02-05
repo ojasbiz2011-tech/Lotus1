@@ -3,19 +3,21 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 import uvicorn
 import game_engine
+import os 
 from typing import List, Dict
 
 app = FastAPI()
 
 # --- DATABASE (In-Memory) ---
 users = {}
-
-# GLOBAL STATE
-# CHANGED: Starts at 0.00 now. Community builds it up!
 GLOBAL_POOL = 0.00 
 RECENT_LOGS = [] 
 
-templates = Jinja2Templates(directory="templates")
+# --- FOLDER DETECTION ---
+if os.path.exists("templates"):
+    templates = Jinja2Templates(directory="templates")
+else:
+    templates = Jinja2Templates(directory=".")
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
@@ -68,5 +70,8 @@ def get_user(user_id: int):
         "top_players": sorted_users[:5] 
     }
 
+# --- THE FIX IS HERE ---
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    # Render assigns a random port (e.g., 10000). We MUST use it.
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
