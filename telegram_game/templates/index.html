@@ -426,42 +426,47 @@ canvas.addEventListener('touchmove', e => { e.preventDefault(); handleMove(e.tou
 canvas.addEventListener('touchend', handleEnd);
 
 // --- ADS & INIT ---
+
+// Helper: Sends money to server after ad
+async function recordAdReward() {
+    try {
+        const userId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 12345;
+        await fetch('/api/ads/confirm', { method:'POST', body:JSON.stringify({user_id:userId}) });
+        loadUserData(); 
+    } catch(e) {}
+}
+
 function watchAd() {
-    // Check if the Monetag ad library is ready
+    // 1. Check if Monetag is ready
     if (typeof show_10572322 === 'function') {
         
-        // This command plays the real video ad
         show_10572322().then(() => {
-            // --- THIS RUNS AFTER AD FINISHES ---
-            console.log("Ad finished!");
+            // --- SUCCESS ---
+            console.log("Ad finished. Starting game...");
             
-            // 1. Generate the new puzzle
+            // A. Switch to Game Screen (THIS WAS MISSING)
+            showScreen('screen-game');
+            
+            // B. Start Level
             startNewGame(); 
             
-            // 2. Add money to the server (using your helper function)
+            // C. Add Money
             recordAdReward();
+            
         }).catch(e => {
-            // If ad fails (e.g. adblocker), just let them play
-            console.log("Ad error:", e);
+            // --- ERROR (AdBlock or No Internet) ---
+            console.log("Ad failed:", e);
+            // Let them play anyway
+            showScreen('screen-game'); // Switch Screen
             startNewGame();
         });
 
     } else {
-        // Fallback if script didn't load
-        console.log("Ad script missing");
+        // --- FALLBACK (Script not loaded) ---
+        console.log("Ad script missing. Bypassing.");
+        showScreen('screen-game'); // Switch Screen
         startNewGame();
     }
-}
-
-async function finishAd() {
-    document.getElementById('ad-overlay').style.display = 'none';
-    showScreen('screen-game'); // Ensure we are on game screen
-    
-    // Sync with server for money
-    try {
-        const userId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 12345;
-        await fetch('/api/ads/confirm', { method:'POST', body:JSON.stringify({user_id:userId}) });
-    } catch(e) {}
 }
 
 // Initial Load
@@ -469,6 +474,7 @@ loadUserData();
 </script>
 </body>
 </html>
+
 
 
 
