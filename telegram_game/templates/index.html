@@ -9,6 +9,29 @@
     <style>
         body { margin: 0; padding: 0; background-color: rgb(250, 242, 230); font-family: 'Verdana', sans-serif; overflow: hidden; user-select: none; }
         
+        /* AD OVERLAY STYLE */
+        #ad-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.95); z-index: 9999;
+            flex-direction: column; align-items: center; justify-content: center;
+        }
+        #ad-wrapper {
+            background: #000; border: 2px solid #333;
+            box-shadow: 0 0 50px rgba(255, 255, 255, 0.1);
+            padding: 10px; border-radius: 4px; margin-bottom: 20px;
+            display: flex; align-items: center; justify-content: center;
+            min-width: 300px; min-height: 250px; 
+        }
+        #close-ad-btn {
+            background: transparent; color: #fff; border: 1px solid #fff; 
+            padding: 12px 40px; font-family: monospace; font-weight: bold; font-size: 14px; 
+            border-radius: 30px; cursor: pointer; opacity: 0.3; pointer-events: none; transition: all 0.3s;
+        }
+        #close-ad-btn.enabled {
+            background: #00ff00; color: black; border-color: #00ff00;
+            opacity: 1; pointer-events: auto; box-shadow: 0 0 20px #00ff00;
+        }
+
         /* SCREENS & NAVIGATION */
         .screen { display: none; width: 100%; height: 100vh; position: absolute; top: 0; left: 0; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 20px; box-sizing: border-box; }
         .active { display: flex; }
@@ -34,10 +57,12 @@
         .btn-red { background: rgb(205, 70, 70); border-color: rgb(150, 50, 50); }
         .btn-small { width: auto; padding: 8px 15px; font-size: 14px; margin: 0; }
 
-        /* GAME HEADER (Exit & Skip) */
+        /* GAME HEADER (Exit & New Level) */
         .game-header {
             width: 100%; display: flex; justify-content: space-between; 
-            padding: 10px 15px; position: absolute; top: 0; left: 0; z-index: 100;
+            padding: 10px 25px; /* Increased padding to bring button left */
+            position: absolute; top: 0; left: 0; z-index: 100;
+            box-sizing: border-box; /* Ensures padding stays inside width */
         }
 
         /* LOGS & LEADERBOARD LISTS */
@@ -50,29 +75,6 @@
         
         .lb-list { height: 60vh; overflow-y: auto; text-align: left; }
         .lb-row { display: flex; justify-content: space-between; padding: 8px; border-bottom: 1px solid rgba(101,67,33,0.3); }
-
-        /* AD OVERLAY */
-        #ad-overlay {
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.95); z-index: 9999;
-            flex-direction: column; align-items: center; justify-content: center;
-        }
-        #ad-wrapper {
-            background: #000; border: 2px solid #333;
-            box-shadow: 0 0 50px rgba(255, 255, 255, 0.1);
-            padding: 10px; border-radius: 4px; margin-bottom: 20px;
-            display: flex; align-items: center; justify-content: center;
-            min-width: 300px; min-height: 250px; 
-        }
-        #close-ad-btn {
-            background: transparent; color: #fff; border: 1px solid #fff; 
-            padding: 12px 40px; font-family: monospace; font-weight: bold; font-size: 14px; 
-            border-radius: 30px; cursor: pointer; opacity: 0.3; pointer-events: none; transition: all 0.3s;
-        }
-        #close-ad-btn.enabled {
-            background: #00ff00; color: black; border-color: #00ff00;
-            opacity: 1; pointer-events: auto; box-shadow: 0 0 20px #00ff00;
-        }
 
         canvas { touch-action: none; display: block; }
     </style>
@@ -120,7 +122,7 @@
     <div id="screen-game" class="screen">
         <div class="game-header">
             <button class="btn btn-small" onclick="exitGame()">❌ Exit</button>
-            <button class="btn btn-small btn-red" onclick="watchAd()">Skip ></button>
+            <button class="btn btn-small btn-red" onclick="watchAd()">New Level ></button>
         </div>
         <canvas id="gameCanvas"></canvas>
     </div>
@@ -175,9 +177,8 @@ function exitGame() {
     showScreen('screen-home');
 }
 
-// --- DATA FETCHING (Mock for frontend, connect to your server.py logic) ---
+// --- DATA FETCHING ---
 async function loadUserData() {
-    // Try to fetch from server if running, else use placeholders
     try {
         const userId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 12345;
         let res = await fetch(`/api/user/${userId}`);
