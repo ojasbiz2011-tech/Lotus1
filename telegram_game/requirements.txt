@@ -3,3 +3,4 @@ uvicorn
 python-telegram-bot
 pygame
 jinja2
+requests
