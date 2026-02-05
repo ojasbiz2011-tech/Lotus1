@@ -1,6 +1,7 @@
 import pygame
 import random
 import copy
+import time
 from collections import deque
 
 pygame.init()
@@ -16,7 +17,7 @@ class Block:
         self.length = length
         self.orientation = orientation
         self.is_target = is_target
-        self.initial_pos = (col, row)
+        # Visual/Rect data needed for collision logic
         self.gap = 3
         if self.orientation == 'H':
             self.width = length * TILE_SIZE - (self.gap * 2)
@@ -42,11 +43,13 @@ def check_grid_collision(c, r, b, all_blocks):
     return False
 
 def solve_board(blocks):
+    # Create a simulation copy
     sim = [copy.copy(b) for b in blocks]
     try:
         target_idx = next(i for i, b in enumerate(sim) if b.is_target)
     except StopIteration: return -1
 
+    # State is represented by a tuple of (col, row) for all blocks
     start_state = tuple((b.col, b.row) for b in sim)
     queue = deque([(start_state, 0)])
     visited = {start_state}
@@ -54,17 +57,21 @@ def solve_board(blocks):
     
     while queue:
         state, depth = queue.popleft()
-        if depth > max_depth: return -1
+        if depth > max_depth: return -1 # Too hard/complex for quick solve
         
+        # Apply current state to simulation blocks
         for i, pos in enumerate(state):
             sim[i].col, sim[i].row = pos
             
+        # Check Win
         if sim[target_idx].col == GRID_SIZE - 2:
             return depth 
             
+        # Explore Moves
         for i, b in enumerate(sim):
             moves = [(-1, 0), (1, 0)] if b.orientation == 'H' else [(0, -1), (0, 1)]
             for dc, dr in moves:
+                # Check collision with the layout from THIS state
                 if not check_grid_collision(b.col+dc, b.row+dr, b, sim):
                     ns = list(state)
                     ns[i] = (b.col+dc, b.row+dr)
@@ -75,14 +82,20 @@ def solve_board(blocks):
     return -1
 
 def generate_puzzle():
-    # SAFETY VALVE: Don't loop forever. Try 20 times max.
-    attempts = 0
+    start_time = time.time()
     best_data = None
+    max_difficulty = -1
     
-    while attempts < 20:
-        attempts += 1
+    # TIMEOUT STRATEGY: 
+    # Try to find a hard level for exactly 1.5 seconds.
+    # If we find a "Perfect" level (10+ moves), return instantly.
+    # If time runs out, return the hardest one we found so far.
+    
+    while time.time() - start_time < 1.5:
+        
+        # 1. Create Random Layout
         temp_blocks = [Block(random.randint(0, 2), 2, 2, 'H', True)]
-        target_count = random.randint(13, 16) # Slightly relaxed for speed
+        target_count = random.randint(13, 16) # KEEPING IT DENSE & HARD
         fails = 0
         
         while len(temp_blocks) < target_count and fails < 100:
@@ -105,23 +118,33 @@ def generate_puzzle():
             else:
                 fails += 1
         
-        if len(temp_blocks) >= 10:
+        # 2. Check Solvability
+        if len(temp_blocks) >= 8:
             result = solve_board(temp_blocks)
-            # If solvable, save it. 
+            
             if result > 0:
+                # Convert to JSON format
                 data = []
                 for i, b in enumerate(temp_blocks):
                     data.append({
                         "id": i, "col": b.col, "row": b.row, "length": b.length, "orientation": b.orientation, "is_target": b.is_target
                     })
-                best_data = data
-                # If it's hard enough, return immediately
-                if result >= 8: 
+                
+                # If this is the hardest so far, save it
+                if result > max_difficulty:
+                    max_difficulty = result
+                    best_data = data
+                
+                # If it is HARD ENOUGH (Gold Standard), stop looking and return immediately
+                if result >= 12: 
                     return data
-    
-    # If we couldn't find a HARD level in 20 tries, return the last SOLVABLE one (Medium)
-    # This prevents the "7 business days" wait.
-    return best_data if best_data else generate_puzzle() # Recursion only if catastrophic failure
+
+    # 3. Time is up! Return the best one we found.
+    # If we found nothing solvable (extremely rare), recurse to try again.
+    if best_data:
+        return best_data
+    else:
+        return generate_puzzle()
 
 def validate_moves(initial_level_data, move_history):
     blocks = []
