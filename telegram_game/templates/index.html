@@ -7,44 +7,94 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         body { margin: 0; padding: 0; background-color: rgb(250, 242, 230); font-family: 'Verdana', sans-serif; overflow: hidden; user-select: none; }
-        .screen { display: none; width: 100%; height: 100vh; position: absolute; top: 0; left: 0; flex-direction: column; align-items: center; justify-content: center; }
+        .screen { display: none; width: 100%; height: 100vh; position: absolute; top: 0; left: 0; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 20px; }
         .active { display: flex; }
-        h1 { color: rgb(80, 50, 30); margin-bottom: 10px; font-size: 24px; font-weight: bold; }
-        .btn { background: rgb(101, 67, 33); color: white; padding: 15px 30px; border-radius: 8px; font-weight: bold; margin: 10px; cursor: pointer; border: 2px solid rgb(80, 50, 30); box-shadow: 0 4px 6px rgba(0,0,0,0.3); font-size: 16px; }
-        .card { background: rgb(250, 242, 230); border: 4px solid rgb(101, 67, 33); padding: 20px; border-radius: 12px; width: 80%; text-align: center; margin-bottom: 15px; color: rgb(80, 50, 30); }
-        canvas { background-color: transparent; touch-action: none; }
+        
+        /* UI ELEMENTS */
+        h1 { color: rgb(80, 50, 30); margin-bottom: 5px; font-size: 22px; font-weight: bold; }
+        .btn { background: rgb(101, 67, 33); color: white; padding: 12px 25px; border-radius: 8px; font-weight: bold; margin: 5px; cursor: pointer; border: 2px solid rgb(80, 50, 30); font-size: 16px; }
+        .btn-small { padding: 8px 15px; font-size: 14px; margin: 0 5px; }
+        .card { background: rgb(250, 242, 230); border: 3px solid rgb(101, 67, 33); padding: 15px; border-radius: 12px; width: 85%; text-align: center; margin-bottom: 10px; color: rgb(80, 50, 30); box-shadow: 0 4px 0 rgba(101,67,33,0.2); }
+        
+        /* SCROLLING LOG */
+        .log-box { height: 80px; overflow-y: auto; font-size: 12px; text-align: left; background: rgba(0,0,0,0.05); border-radius: 5px; padding: 5px; margin-top: 5px; }
+        .log-item { padding: 2px 0; border-bottom: 1px dashed #ccc; }
+        
+        /* LEADERBOARD */
+        .lb-row { display: flex; justify-content: space-between; font-size: 14px; padding: 4px 0; }
+        
+        canvas { background-color: transparent; touch-action: none; margin-top: 10px; }
     </style>
 </head>
 <body>
-    <div id="screen-home" class="screen active">
+
+    <div id="screen-home" class="screen active" style="justify-content: center;">
         <h1>Dense Wood Escape</h1>
+        
         <div class="card">
-            <h3>Weekly Prize Pool</h3>
-            <h2 style="color: rgb(0, 150, 0);" id="pool-display">...</h2>
-            <p>Rank #<span id="rank-display">-</span></p>
+            <h3>🏆 Weekly Prize Pool</h3>
+            <h2 style="color: rgb(0, 150, 0); font-size: 32px;" id="pool-display">...</h2>
+            
+            <div class="log-box" id="activity-log">
+                <div class="log-item">Loading activity...</div>
+            </div>
         </div>
-        <button class="btn" onclick="checkAdsAndPlay()">▶ Play Puzzle</button>
-        <button class="btn" onclick="showScreen('screen-wallet')">💰 Earnings</button>
+
+        <div class="card" style="display: flex; justify-content: space-around;">
+            <div>
+                <div style="font-size:12px">YOUR RANK</div>
+                <div style="font-size:20px; font-weight:bold" id="my-rank">-</div>
+            </div>
+            <div>
+                <div style="font-size:12px">SCORE</div>
+                <div style="font-size:20px; font-weight:bold" id="my-score">0</div>
+            </div>
+        </div>
+
+        <button class="btn" onclick="checkAdsAndPlay()" style="width: 80%;">▶ PLAY GAME</button>
+        <button class="btn" onclick="showScreen('screen-leaderboard')" style="width: 80%; background: #d4af37; color: black;">🏅 LEADERBOARD</button>
+    </div>
+
+    <div id="screen-leaderboard" class="screen" style="justify-content: center;">
+        <h1>Top Players</h1>
+        <div class="card" id="lb-list">
+            </div>
+        <button class="btn" onclick="showScreen('screen-home')">⬅ Back to Home</button>
     </div>
 
     <div id="screen-game" class="screen">
+        <div style="width: 100%; display: flex; justify-content: space-between; padding: 0 15px; box-sizing: border-box; position: absolute; top: 10px;">
+            <button class="btn btn-small" onclick="showScreen('screen-home')">🏠 Home</button>
+            <button class="btn btn-small" style="background: rgb(205, 70, 70);" onclick="showScreen('screen-ads')">Skip ></button>
+        </div>
+        
         <canvas id="gameCanvas"></canvas>
-    </div>
-
-    <div id="screen-ads" class="screen">
-        <div class="card">
-            <h1>Skip Level?</h1>
-            <p>Watch Ad to get a new puzzle.</p>
-            <button class="btn" onclick="watchAd()">📺 Watch Ad</button>
+        
+        <div style="position: absolute; bottom: 20px; font-weight: bold; color: rgb(80, 50, 30);">
+            MOVES: <span id="move-count">0</span>
         </div>
     </div>
 
-    <div id="screen-wallet" class="screen"><div class="card"><h1>Earnings</h1><h2 id="wallet-bal">₹0.00</h2></div><button class="btn" onclick="showScreen('screen-home')">Back</button></div>
+    <div id="screen-ads" class="screen" style="justify-content: center;">
+        <div class="card">
+            <h1>Skip Level?</h1>
+            <p>Watch Ad to get a new puzzle + Add to Pool.</p>
+            <button class="btn" onclick="watchAd()">📺 Watch Ad</button>
+            <br><br>
+            <button class="btn btn-small" onclick="showScreen('screen-game')" style="background: #888;">Cancel</button>
+        </div>
+    </div>
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
-        const userId = tg.initDataUnsafe?.user?.id || 12345;
+        
+        // AUTH: Get Telegram Data
+        const user = tg.initDataUnsafe?.user || {};
+        const userId = user.id || 12345;
+        const firstName = user.first_name || "Guest";
+
+        // --- GAME VARIABLES ---
         const GRID_SIZE = 6;
         const GAP = 3; 
         const C_BG = "rgb(250, 242, 230)";
@@ -53,26 +103,22 @@
         const C_RED = "rgb(205, 70, 70)";
         const C_H = "rgb(235, 210, 150)";
         const C_V = "rgb(210, 180, 130)";
-        const C_TEXT = "rgb(80, 50, 30)";
-
+        
         let canvas = document.getElementById("gameCanvas");
         let ctx = canvas.getContext("2d");
-        
-        // Dynamic Sizing
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
         let maxW = window.innerWidth * 0.90; 
-        let maxH = window.innerHeight * 0.75; 
         let tileW = maxW / GRID_SIZE;
-        let tileH = maxH / GRID_SIZE;
-        let TILE_SIZE = Math.floor(Math.min(tileW, tileH));
+        let TILE_SIZE = Math.floor(tileW);
         let GRID_OFFSET_X = (canvas.width - (GRID_SIZE * TILE_SIZE)) / 2;
-        let GRID_OFFSET_Y = (canvas.height - (GRID_SIZE * TILE_SIZE)) / 2 + 30;
+        let GRID_OFFSET_Y = (canvas.height - (GRID_SIZE * TILE_SIZE)) / 2; // Centered
 
-        let gameState = { blocks: [], moves: [], moveCount: 0, won: false };
+        let gameState = { blocks: [], moves: 0, won: false };
         let selectedBlock = null;
         let dragOffset = { x:0, y:0 };
 
+        // --- NAVIGATION ---
         function showScreen(id) {
             document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
             document.getElementById(id).classList.add('active');
@@ -80,19 +126,72 @@
             if(id === 'screen-game') requestAnimationFrame(gameLoop);
         }
 
+        // --- API CALLS ---
+        async function loadUserData() { 
+            try { 
+                let res = await fetch(`/api/user/${userId}`); 
+                let d = await res.json(); 
+                
+                // 1. Update Pool
+                document.getElementById('pool-display').innerText = "₹" + d.global_pool.toFixed(2); 
+                
+                // 2. Update My Stats
+                document.getElementById('my-rank').innerText = "#" + d.rank;
+                document.getElementById('my-score').innerText = d.ads_watched;
+                
+                // 3. Update Activity Log
+                let logHTML = "";
+                d.recent_logs.forEach(log => {
+                    logHTML += `<div class="log-item">🔔 ${log}</div>`;
+                });
+                document.getElementById('activity-log').innerHTML = logHTML || "<div class='log-item'>No recent activity</div>";
+
+                // 4. Update Leaderboard
+                let lbHTML = "";
+                d.top_players.forEach((p, index) => {
+                    let icon = index === 0 ? "🥇" : (index === 1 ? "🥈" : "👤");
+                    lbHTML += `<div class="lb-row"><span>${icon} ${p.name}</span><b>${p.ads_watched}</b></div>`;
+                });
+                document.getElementById('lb-list').innerHTML = lbHTML;
+
+            } catch(e) { console.error(e); } 
+        }
+
         async function startGame() {
             showScreen('screen-game');
             gameState.blocks = []; 
+            // "Loading" text
+            ctx.fillStyle = "black"; ctx.fillText("Loading Level...", 50, 100);
+            
             let res = await fetch('/api/generate_level');
             let levelData = await res.json();
             
             gameState.blocks = levelData.map((b, i) => ({
                 id: i, col: b.col, row: b.row, initialCol: b.col, initialRow: b.row, length: b.length, orientation: b.orientation, is_target: b.is_target,
-                rect: calculateRect(b.col, b.row, b.length, b.orientation)
+                rect: calculateRect(b.col, b.row, b.length, b.orientation),
+                startCol: b.col, startRow: b.row
             }));
-            gameState.moves = []; gameState.moveCount = 0; gameState.won = false;
+            gameState.moves = 0; 
+            gameState.won = false;
+            document.getElementById('move-count').innerText = 0;
         }
 
+        function watchAd() { 
+            let btn = document.querySelector('#screen-ads button');
+            btn.innerText = "⏳ Verifying...";
+            setTimeout(async()=>{ 
+                await fetch('/api/ads/confirm', {
+                    method:'POST', 
+                    body:JSON.stringify({user_id: userId, first_name: firstName})
+                }); 
+                btn.innerText = "📺 Watch Ad";
+                startGame(); 
+            }, 1000); 
+        }
+
+        function checkAdsAndPlay() { startGame(); }
+
+        // --- GAME ENGINE (Visuals) ---
         function calculateRect(col, row, length, orientation) {
             let w = orientation === 'H' ? length * TILE_SIZE - (GAP * 2) : TILE_SIZE - (GAP * 2);
             let h = orientation === 'V' ? length * TILE_SIZE - (GAP * 2) : TILE_SIZE - (GAP * 2);
@@ -104,55 +203,39 @@
         function drawBlock(b) {
             let color = b.is_target ? C_RED : (b.orientation === 'H' ? C_H : C_V);
             let { x, y, w, h } = b.rect;
-            ctx.fillStyle = "rgba(0, 0, 0, 0.16)"; ctx.beginPath(); ctx.roundRect(x+4, y+4, w, h, 6); ctx.fill();
             ctx.fillStyle = color; ctx.beginPath(); ctx.roundRect(x, y, w, h, 6); ctx.fill();
-            ctx.lineWidth = 2; ctx.strokeStyle = "rgb(255, 255, 255)"; ctx.beginPath();
-            ctx.moveTo(x+3, y+2); ctx.lineTo(x+w-3, y+2); ctx.moveTo(x+2, y+3); ctx.lineTo(x+2, y+h-3); ctx.stroke();
-            ctx.strokeStyle = "rgb(0, 0, 0)"; ctx.beginPath();
-            ctx.moveTo(x+3, y+h-2); ctx.lineTo(x+w-3, y+h-2); ctx.moveTo(x+w-2, y+3); ctx.lineTo(x+w-2, y+h-3); ctx.stroke();
+            // Simple Borders
+            ctx.strokeStyle = "rgba(0,0,0,0.3)"; ctx.lineWidth = 2; ctx.stroke();
         }
 
         function gameLoop() {
-            ctx.fillStyle = C_BG; ctx.fillRect(0, 0, canvas.width, canvas.height);
-            let frameX = GRID_OFFSET_X - 15; let frameY = GRID_OFFSET_Y - 15; let frameSize = GRID_SIZE * TILE_SIZE + 30;
-            ctx.fillStyle = C_FRAME; ctx.beginPath(); ctx.roundRect(frameX, frameY, frameSize, frameSize, 12); ctx.fill();
-            ctx.fillStyle = C_WELL; ctx.beginPath(); ctx.roundRect(frameX+10, frameY+10, frameSize-20, frameSize-20, 4); ctx.fill();
-            ctx.fillStyle = "black"; let exitY = GRID_OFFSET_Y + (2 * TILE_SIZE) + 5; ctx.fillRect(frameX + frameSize - 20, exitY, 25, TILE_SIZE - 10);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            if(gameState.blocks.length === 0) {
-                 ctx.fillStyle = C_TEXT; ctx.font = "bold 24px Verdana"; ctx.fillText("Generating...", canvas.width/2 - 80, canvas.height/2);
-            } else {
-                 gameState.blocks.forEach(drawBlock);
+            // Draw Board Frame
+            let frameSize = GRID_SIZE * TILE_SIZE + 20;
+            ctx.fillStyle = C_FRAME; 
+            ctx.fillRect(GRID_OFFSET_X - 10, GRID_OFFSET_Y - 10, frameSize, frameSize);
+            ctx.fillStyle = C_WELL; 
+            ctx.fillRect(GRID_OFFSET_X, GRID_OFFSET_Y, GRID_SIZE * TILE_SIZE, GRID_SIZE * TILE_SIZE);
+            
+            // Exit Hole
+            ctx.fillStyle = "black"; 
+            ctx.fillRect(GRID_OFFSET_X + (GRID_SIZE * TILE_SIZE), GRID_OFFSET_Y + (2 * TILE_SIZE) + 5, 20, TILE_SIZE - 10);
+
+            gameState.blocks.forEach(drawBlock);
+            
+            if(gameState.won) {
+                ctx.fillStyle = "rgba(0,0,0,0.7)";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = "#00ff00"; ctx.font = "bold 40px Arial"; ctx.fillText("SOLVED!", canvas.width/2 - 80, canvas.height/2);
             }
 
-            // TEXT UI
-            ctx.fillStyle = C_TEXT; ctx.font = "bold 24px Verdana"; 
-            let text = `Moves: ${gameState.moveCount}`; 
-            ctx.fillText(text, (canvas.width - ctx.measureText(text).width)/2, 80);
-            
-            // "Next" Button (Top Right)
-            ctx.font = "bold 18px Verdana"; 
-            ctx.fillStyle = C_RED; 
-            ctx.fillText("Next >", canvas.width - 90, 50);
-
-            if(gameState.won) { 
-                ctx.fillStyle = "rgb(0, 150, 0)"; ctx.font = "bold 40px Verdana"; 
-                ctx.fillText("SOLVED!", (canvas.width/2) - 80, 150); 
-            }
             if(document.getElementById('screen-game').classList.contains('active')) { requestAnimationFrame(gameLoop); }
         }
 
+        // --- INPUT HANDLING ---
         function handleStart(x, y) {
-            // 1. CHECK NEXT BUTTON FIRST (So it works even if you won!)
-            if(y < 80 && x > canvas.width - 100) { 
-                 showScreen('screen-ads'); 
-                 return; 
-            }
-
-            // 2. CHECK WIN STATE (If won, stop moving blocks)
             if(gameState.won) return;
-
-            // 3. CHECK BLOCKS
             for(let b of gameState.blocks) {
                 if(x >= b.rect.x && x <= b.rect.x + b.rect.w && y >= b.rect.y && y <= b.rect.y + b.rect.h) {
                     selectedBlock = b; dragOffset.x = b.rect.x - x; dragOffset.y = b.rect.y - y;
@@ -160,7 +243,6 @@
                 }
             }
         }
-
         function handleMove(x, y) {
             if(!selectedBlock) return;
             let sb = selectedBlock; let targetX = x + dragOffset.x; let targetY = y + dragOffset.y;
@@ -172,62 +254,21 @@
                 for(let i=0; i<dist; i++) { let testRect = { ...sb.rect, y: sb.rect.y + direction }; if (!checkCollisionVisual(testRect, sb)) sb.rect.y += direction; else break; }
             }
         }
-
         function handleEnd() {
             if(!selectedBlock) return;
             let sb = selectedBlock;
-            
-            // 1. Calculate where you tried to go (Rounded)
-            let idealCol = Math.round((sb.rect.x - GRID_OFFSET_X) / TILE_SIZE);
-            let idealRow = Math.round((sb.rect.y - GRID_OFFSET_Y) / TILE_SIZE);
-            
-            // Lock to axis
-            if(sb.orientation === 'H') idealRow = sb.row; 
-            else idealCol = sb.col;
-
-            // 2. CHECK: Is the ideal spot valid?
-            if(checkCollisionGrid(idealCol, idealRow, sb, gameState.blocks)) {
-                // COLLISION! The ideal spot is blocked.
-                // SMART FIX: Check if we can "step back" one tile instead of resetting completely?
-                
-                // Calculate direction we were dragging
-                let dCol = idealCol - sb.startCol;
-                let dRow = idealRow - sb.startRow;
-                
-                // If we tried to move +2 but hit a wall, try +1
-                if (Math.abs(dCol) > 1) {
-                     let backupCol = sb.startCol + (dCol > 0 ? dCol - 1 : dCol + 1);
-                     if(!checkCollisionGrid(backupCol, idealRow, sb, gameState.blocks)) idealCol = backupCol;
-                     else idealCol = sb.startCol; // Give up
-                } 
-                else if (Math.abs(dRow) > 1) {
-                     let backupRow = sb.startRow + (dRow > 0 ? dRow - 1 : dRow + 1);
-                     if(!checkCollisionGrid(idealCol, backupRow, sb, gameState.blocks)) idealRow = backupRow;
-                     else idealRow = sb.startRow; // Give up
-                } 
-                else {
-                    // We only moved 1 tile and hit a wall. Snap back.
-                    idealCol = sb.startCol;
-                    idealRow = sb.startRow;
-                }
-            }
-
-            // 3. Apply the Move
-            sb.col = idealCol; 
-            sb.row = idealRow;
-            
-            // 4. Recalculate Visuals
+            let idealCol = Math.round((sb.rect.x - GRID_OFFSET_X) / TILE_SIZE); let idealRow = Math.round((sb.rect.y - GRID_OFFSET_Y) / TILE_SIZE);
+            if(sb.orientation === 'H') idealRow = sb.row; else idealCol = sb.col;
+            if(!checkCollisionGrid(idealCol, idealRow, sb, gameState.blocks)) { sb.col = idealCol; sb.row = idealRow; } else { sb.col = sb.startCol; sb.row = sb.startRow; }
             sb.rect = calculateRect(sb.col, sb.row, sb.length, sb.orientation);
-            
-            // 5. Register Move (Only if actually changed)
             if(sb.col !== sb.startCol || sb.row !== sb.startRow) {
-                gameState.moveCount++; 
-                gameState.moves.push({ id: sb.id, col: sb.col, row: sb.row });
+                gameState.moves++; document.getElementById('move-count').innerText = gameState.moves;
                 if(sb.is_target && sb.col === 4) { gameState.won = true; submitGame(); }
             }
             selectedBlock = null;
         }
-
+        
+        // --- HELPERS ---
         function checkCollisionVisual(rect, activeB) {
             if (rect.x < GRID_OFFSET_X) return true; if (rect.x + rect.w > GRID_OFFSET_X + (GRID_SIZE * TILE_SIZE)) return true;
             if (rect.y < GRID_OFFSET_Y) return true; if (rect.y + rect.h > GRID_OFFSET_Y + (GRID_SIZE * TILE_SIZE)) return true;
@@ -239,7 +280,6 @@
             }
             return false;
         }
-
         function checkCollisionGrid(c, r, b, allBlocks) {
              if (c < 0 || r < 0) return true; if (b.orientation === 'H' && c + b.length > GRID_SIZE) return true; if (b.orientation === 'V' && r + b.length > GRID_SIZE) return true;
              let cells = []; for(let i=0; i<b.length; i++) cells.push(b.orientation === 'H' ? `${c+i},${r}` : `${c},${r+i}`);
@@ -249,7 +289,9 @@
              }
              return false;
         }
+        async function submitGame() { await fetch('/api/submit_game', { method: 'POST', body: JSON.stringify({ user_id: userId }) }); }
 
+        // Event Listeners
         canvas.addEventListener('mousedown', e => handleStart(e.clientX, e.clientY));
         canvas.addEventListener('mousemove', e => handleMove(e.clientX, e.clientY));
         canvas.addEventListener('mouseup', handleEnd);
@@ -257,23 +299,8 @@
         canvas.addEventListener('touchmove', e => { e.preventDefault(); handleMove(e.touches[0].clientX, e.touches[0].clientY); }, {passive: false});
         canvas.addEventListener('touchend', handleEnd);
         
-        // Keyboard: 'N' key now opens Ads instead of restarting
-        document.addEventListener('keydown', (e) => { 
-            if(document.getElementById('screen-game').classList.contains('active')) { 
-                if(e.key.toLowerCase() === 'n') showScreen('screen-ads'); 
-            } 
-        });
-
-        async function loadUserData() { try{ let res=await fetch(`/api/user/${userId}`); let d=await res.json(); document.getElementById('pool-display').innerText="₹"+(d.global_pool).toFixed(2); document.getElementById('rank-display').innerText=d.rank; }catch(e){} }
-        async function checkAdsAndPlay() { try{ let res=await fetch(`/api/user/${userId}`); if((await res.json()).ads_watched>=1) startGame(); else showScreen('screen-ads'); }catch(e){showScreen('screen-ads');} }
-        function watchAd() { setTimeout(async()=>{ await fetch('/api/ads/confirm', {method:'POST', body:JSON.stringify({user_id:userId})}); startGame(); }, 1000); }
-        
-        // FIXED SUBMIT: No Alert, No Redirect
-        async function submitGame() { 
-            // Just send data silently
-            await fetch('/api/submit_game', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ user_id: userId, initial_level: gameState.blocks, moves: gameState.moves }) }); 
-            // We do nothing else. The game loop will keep showing "SOLVED!" and the user can click "Next >" when ready.
-        }
+        // Start on Load
+        loadUserData();
     </script>
 </body>
 </html>
