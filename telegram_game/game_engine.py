@@ -5,7 +5,6 @@ from collections import deque
 
 # --- CONFIGURATION ---
 GRID_SIZE = 6
-# Note: TILE_SIZE is handled on frontend, logic only needs grid coords
 
 class Block:
     def __init__(self, col, row, length, orientation, is_target=False):
@@ -65,7 +64,7 @@ def solve_board(blocks):
                         queue.append((nt, depth+1))
     return -1
 
-# A backup level in case generation times out (Prevents loading stuck)
+# Fallback Level (just in case 1.5s isn't enough)
 BACKUP_LEVEL = [
     {"id":0, "col":0, "row":2, "length":2, "orientation":"H", "is_target":True},
     {"id":1, "col":2, "row":0, "length":3, "orientation":"V", "is_target":False},
@@ -78,15 +77,12 @@ BACKUP_LEVEL = [
 ]
 
 def generate_puzzle():
-    # 1.5 Second Timeout as requested
     start_time = time.time()
     
+    # 1.5 Second Limit as requested
     while time.time() - start_time < 1.5:
-        # Target: Row 2, Random Col 0-2 (From your code)
         temp_blocks = [Block(random.randint(0, 1), 2, 2, 'H', True)]
-        
-        # High Density: 14-18 blocks (From your code)
-        target_count = random.randint(14, 18)
+        target_count = random.randint(14, 18) # High Density
         fails = 0
         
         while len(temp_blocks) < target_count and fails < 50:
@@ -100,8 +96,7 @@ def generate_puzzle():
                 c = random.randint(0, GRID_SIZE - 1)
                 r = random.randint(0, GRID_SIZE - l)
             
-            # OG Logic: No horizontal blocks on row 2 except hero
-            if r == 2 and o == 'H':
+            if r == 2 and o == 'H': 
                 fails += 1
                 continue
                 
@@ -111,11 +106,10 @@ def generate_puzzle():
             else:
                 fails += 1
         
-        # Verify Solvability (At least 8 moves to be fun)
-        if len(temp_blocks) >= 10:
+        # Exact condition from your code: >= 13 blocks, >= 10 moves
+        if len(temp_blocks) >= 13:
             result = solve_board(temp_blocks)
-            if result >= 8:
-                # Convert to JSON for frontend
+            if result >= 10:
                 data = []
                 for i, b in enumerate(temp_blocks):
                     data.append({
@@ -125,5 +119,4 @@ def generate_puzzle():
                     })
                 return data
 
-    # If 1.5s passes and no level is found, return backup (Prevents Stuck Screen)
     return BACKUP_LEVEL
