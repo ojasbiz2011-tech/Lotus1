@@ -7,7 +7,7 @@
     
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        /* --- ORIGINAL GAME STYLES --- */
+        /* --- ORIGINAL STYLES --- */
         body { margin: 0; padding: 0; background-color: rgb(250, 242, 230); font-family: 'Verdana', sans-serif; overflow: hidden; user-select: none; }
         .screen { display: none; width: 100%; height: 100vh; position: absolute; top: 0; left: 0; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 20px; box-sizing: border-box; }
         .active { display: flex; }
@@ -17,7 +17,7 @@
         canvas { background-color: transparent; touch-action: none; }
         .btn-small { padding: 8px 15px; font-size: 14px; margin: 0 5px; }
         
-        /* LOGS & LEADERBOARD STYLES */
+        /* LOGS & LEADERBOARD */
         .log-box { height: 80px; overflow-y: auto; font-size: 12px; text-align: left; background: rgba(101, 67, 33, 0.05); border: 2px solid rgb(101, 67, 33); border-radius: 8px; padding: 5px; margin-top: 10px; }
         .log-item { padding: 3px 0; border-bottom: 1px dashed rgb(101, 67, 33); color: rgb(80, 50, 30); }
         .lb-row { display: flex; justify-content: space-between; font-size: 14px; padding: 8px 0; border-bottom: 1px solid rgba(101,67,33,0.3); }
@@ -30,11 +30,10 @@
         #ad-overlay {
             display: none; 
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.95); /* Deep Black Background */
+            background: rgba(0, 0, 0, 0.95); 
             z-index: 9999;
             flex-direction: column; align-items: center; justify-content: center;
         }
-        
         #ad-wrapper {
             background: #000;
             border: 2px solid #333;
@@ -43,29 +42,17 @@
             border-radius: 4px;
             margin-bottom: 20px;
             display: flex; align-items: center; justify-content: center;
-            min-width: 300px;
-            min-height: 250px; 
+            min-width: 300px; min-height: 250px; 
         }
-
         #close-ad-btn {
-            background: transparent; 
-            color: #fff;
-            border: 1px solid #fff; 
-            padding: 12px 40px;
-            font-family: monospace;
-            font-weight: bold; font-size: 14px; border-radius: 30px;
-            cursor: pointer;
-            opacity: 0.3; pointer-events: none; /* Disabled initially */
-            transition: all 0.3s;
+            background: transparent; color: #fff;
+            border: 1px solid #fff; padding: 12px 40px;
+            font-family: monospace; font-weight: bold; font-size: 14px; border-radius: 30px;
+            cursor: pointer; opacity: 0.3; pointer-events: none; transition: all 0.3s;
         }
-        
         #close-ad-btn.enabled {
-            background: #00ff00;
-            color: black;
-            border-color: #00ff00;
-            opacity: 1;
-            pointer-events: auto;
-            box-shadow: 0 0 20px #00ff00;
+            background: #00ff00; color: black; border-color: #00ff00;
+            opacity: 1; pointer-events: auto; box-shadow: 0 0 20px #00ff00;
         }
     </style>
 </head>
@@ -73,15 +60,11 @@
 
     <div id="ad-overlay">
         <div style="color: #888; margin-bottom: 10px; font-size: 12px; letter-spacing: 2px;">SPONSORED VIDEO</div>
-        
         <div id="ad-wrapper">
             <div style="color:#444; font-size:12px;">Loading Ad...</div>
-            
             </div>
-
         <button id="close-ad-btn" onclick="finishAd()">WAIT 5s</button>
     </div>
-
 
     <div id="screen-home" class="screen active">
         <h1>Dense Wood Escape</h1>
@@ -163,23 +146,18 @@
             } catch(e) {} 
         }
 
-        // --- CINEMA MODE LOGIC ---
         function watchAd() {
-            // 1. Show the Overlay
             document.getElementById('ad-overlay').style.display = 'flex';
-            
-            // 2. Start Countdown
             let timeLeft = 5;
             let btn = document.getElementById('close-ad-btn');
             btn.innerText = `WAIT ${timeLeft}s`;
             btn.classList.remove('enabled');
-            
             let timer = setInterval(() => {
                 timeLeft--;
                 if(timeLeft <= 0) {
                     clearInterval(timer);
                     btn.innerText = "❌ CLOSE & PLAY";
-                    btn.classList.add('enabled'); // Turns green
+                    btn.classList.add('enabled');
                 } else {
                     btn.innerText = `WAIT ${timeLeft}s`;
                 }
@@ -187,20 +165,16 @@
         }
 
         async function finishAd() {
-            // 1. Hide Overlay
             document.getElementById('ad-overlay').style.display = 'none';
-            // 2. Verify with Server
             await fetch('/api/ads/confirm', { method:'POST', body:JSON.stringify({user_id:userId, first_name: firstName}) });
-            // 3. Start Game
             startGame();
         }
-        // -----------------------------
 
         async function startGame() {
             showScreen('screen-game'); 
             gameState.blocks = []; 
 
-            // --- FIXED: DRAW "GENERATING" TEXT BEFORE FETCH ---
+            // --- UI FIX: PAINT "GENERATING" TEXT FIRST ---
             ctx.fillStyle = C_BG; 
             ctx.fillRect(0,0,canvas.width, canvas.height);
             ctx.fillStyle = C_TEXT; 
@@ -209,7 +183,7 @@
             ctx.fillText("Generating Level....", canvas.width/2, canvas.height/2); 
             ctx.textAlign = "start";
             
-            // Force a 50ms pause to allow the browser to paint the text
+            // Force delay to let browser render
             await new Promise(r => setTimeout(r, 50)); 
             
             let res = await fetch('/api/generate_level'); 
