@@ -9,7 +9,49 @@
     <style>
         body { margin: 0; padding: 0; background-color: rgb(250, 242, 230); font-family: 'Verdana', sans-serif; overflow: hidden; user-select: none; }
         
-        /* AD OVERLAY STYLE */
+        /* SCREENS & NAVIGATION */
+        .screen { display: none; width: 100%; height: 100vh; position: absolute; top: 0; left: 0; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 20px; box-sizing: border-box; }
+        .active { display: flex; }
+
+        /* UI ELEMENTS */
+        h1 { color: rgb(80, 50, 30); margin-bottom: 5px; font-size: 24px; font-weight: bold; text-align: center; }
+        h2 { color: rgb(0, 150, 0); margin: 5px 0; font-size: 28px; font-weight: bold; }
+        
+        .card { 
+            background: rgb(250, 242, 230); border: 4px solid rgb(101, 67, 33); 
+            padding: 15px; border-radius: 12px; width: 85%; text-align: center; 
+            margin-bottom: 10px; color: rgb(80, 50, 30); 
+            box-shadow: 0 4px 0 rgba(101,67,33,0.2); 
+        }
+
+        .btn { 
+            background: rgb(101, 67, 33); color: white; padding: 15px 30px; 
+            border-radius: 8px; font-weight: bold; margin: 5px; cursor: pointer; 
+            border: 2px solid rgb(80, 50, 30); box-shadow: 0 4px 6px rgba(0,0,0,0.3); 
+            font-size: 16px; width: 80%;
+        }
+        .btn-gold { background: #d4af37; color: black; border-color: #b8962e; }
+        .btn-red { background: rgb(205, 70, 70); border-color: rgb(150, 50, 50); }
+        .btn-small { width: auto; padding: 8px 15px; font-size: 14px; margin: 0; }
+
+        /* GAME HEADER (Exit & Skip) */
+        .game-header {
+            width: 100%; display: flex; justify-content: space-between; 
+            padding: 10px 15px; position: absolute; top: 0; left: 0; z-index: 100;
+        }
+
+        /* LOGS & LEADERBOARD LISTS */
+        .log-box { 
+            height: 80px; overflow-y: auto; font-size: 12px; text-align: left; 
+            background: rgba(101, 67, 33, 0.05); border: 2px solid rgb(101, 67, 33); 
+            border-radius: 8px; padding: 5px; margin-top: 10px; 
+        }
+        .log-item { padding: 3px 0; border-bottom: 1px dashed rgb(101, 67, 33); color: rgb(80, 50, 30); }
+        
+        .lb-list { height: 60vh; overflow-y: auto; text-align: left; }
+        .lb-row { display: flex; justify-content: space-between; padding: 8px; border-bottom: 1px solid rgba(101,67,33,0.3); }
+
+        /* AD OVERLAY */
         #ad-overlay {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0, 0, 0, 0.95); z-index: 9999;
@@ -32,12 +74,7 @@
             opacity: 1; pointer-events: auto; box-shadow: 0 0 20px #00ff00;
         }
 
-        /* CANVAS & UI */
         canvas { touch-action: none; display: block; }
-        
-        /* HIDDEN UI FOR LEADERBOARD (Optional integration) */
-        .screen { display: none; width: 100%; height: 100%; position: absolute; top:0; left:0; }
-        .active { display: block; }
     </style>
 </head>
 <body>
@@ -50,7 +87,41 @@
         <button id="close-ad-btn" onclick="finishAd()">WAIT 5s</button>
     </div>
 
-    <div id="screen-game" class="screen active">
+    <div id="screen-home" class="screen active">
+        <h1>Dense Wood Escape</h1>
+        
+        <div class="card">
+            <h3>🏆 Weekly Prize Pool</h3>
+            <h2 id="pool-display">₹0.00</h2>
+            <div class="log-box" id="activity-log">
+                <div class="log-item">Loading activity...</div>
+            </div>
+        </div>
+
+        <div class="card" style="padding: 10px;">
+            <div style="display: flex; justify-content: space-around;">
+                <div><span style="font-size:10px;">YOUR RANK</span><br><b style="font-size:20px;" id="my-rank">-</b></div>
+                <div><span style="font-size:10px;">ADS WATCHED</span><br><b style="font-size:20px;" id="my-score">0</b></div>
+            </div>
+        </div>
+
+        <button class="btn" onclick="watchAd()">▶ Play Puzzle</button>
+        <button class="btn btn-gold" onclick="showScreen('screen-leaderboard')">🏅 Leaderboard</button>
+    </div>
+
+    <div id="screen-leaderboard" class="screen">
+        <h1>Top Players</h1>
+        <div class="card lb-list" id="lb-content">
+            <div>Loading...</div>
+        </div>
+        <button class="btn" onclick="showScreen('screen-home')">⬅ Back Home</button>
+    </div>
+
+    <div id="screen-game" class="screen">
+        <div class="game-header">
+            <button class="btn btn-small" onclick="exitGame()">❌ Exit</button>
+            <button class="btn btn-small btn-red" onclick="watchAd()">Skip ></button>
+        </div>
         <canvas id="gameCanvas"></canvas>
     </div>
 
@@ -59,7 +130,7 @@
 const GRID_SIZE = 6;
 const GAP = 3;
 
-// --- LIGHT WOOD THEME ---
+// --- THEME ---
 const COLOR_BG = "rgb(250, 242, 230)";
 const COLOR_FRAME = "rgb(101, 67, 33)";
 const COLOR_WELL = "rgb(180, 130, 70)";
@@ -76,7 +147,6 @@ let SCREEN_HEIGHT = window.innerHeight;
 canvas.width = SCREEN_WIDTH;
 canvas.height = SCREEN_HEIGHT;
 
-// Responsive Sizing
 let maxW = SCREEN_WIDTH * 0.90;
 let maxH = SCREEN_HEIGHT * 0.75;
 let tileW = maxW / GRID_SIZE;
@@ -85,7 +155,6 @@ let TILE_SIZE = Math.floor(Math.min(tileW, tileH));
 let GRID_OFFSET_X = (SCREEN_WIDTH - (GRID_SIZE * TILE_SIZE)) / 2;
 let GRID_OFFSET_Y = (SCREEN_HEIGHT - (GRID_SIZE * TILE_SIZE)) / 2 + 30;
 
-// Game State
 let blocks = [];
 let selected = null;
 let won = false;
@@ -94,18 +163,55 @@ let dragOffset = {x: 0, y: 0};
 let startP = {col: 0, row: 0};
 let isGenerating = false;
 
-// --- BLOCK CLASS TRANSLATION ---
+// --- UI NAVIGATION ---
+function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    if(id === 'screen-home') loadUserData();
+    if(id === 'screen-game') requestAnimationFrame(render); // Restart render loop
+}
+
+function exitGame() {
+    showScreen('screen-home');
+}
+
+// --- DATA FETCHING (Mock for frontend, connect to your server.py logic) ---
+async function loadUserData() {
+    // Try to fetch from server if running, else use placeholders
+    try {
+        const userId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 12345;
+        let res = await fetch(`/api/user/${userId}`);
+        if(res.ok) {
+            let d = await res.json();
+            document.getElementById('pool-display').innerText = "₹" + d.global_pool.toFixed(2);
+            document.getElementById('my-rank').innerText = "#" + d.rank;
+            document.getElementById('my-score').innerText = d.ads_watched;
+            
+            // Logs
+            let logHTML = "";
+            d.recent_logs.forEach(l => logHTML += `<div class="log-item">🔔 ${l}</div>`);
+            document.getElementById('activity-log').innerHTML = logHTML || "<div class='log-item'>No recent activity</div>";
+
+            // Leaderboard
+            let lbHTML = "";
+            d.top_players.forEach((p, i) => {
+                let icon = i===0 ? "🥇" : (i===1 ? "🥈" : (i===2 ? "🥉" : "👤"));
+                lbHTML += `<div class="lb-row"><span>${icon} ${p.name}</span><b>${p.ads_watched}</b></div>`;
+            });
+            document.getElementById('lb-content').innerHTML = lbHTML || "<div>No players yet</div>";
+        }
+    } catch(e) {
+        console.log("Offline mode or Server Error");
+    }
+}
+
+// --- BLOCK CLASS ---
 class Block {
     constructor(col, row, length, orientation, is_target=false) {
-        this.id = Math.random(); // Unique ID for collision checks
-        this.col = col;
-        this.row = row;
-        this.length = length;
-        this.orientation = orientation;
-        this.is_target = is_target;
-        this.initial_pos = {col: col, row: row};
+        this.id = Math.random(); 
+        this.col = col; this.row = row; this.length = length;
+        this.orientation = orientation; this.is_target = is_target;
         
-        // Rect properties
         if (this.orientation === 'H') {
             this.width = length * TILE_SIZE - (GAP * 2);
             this.height = TILE_SIZE - (GAP * 2);
@@ -116,7 +222,6 @@ class Block {
             this.color = COLOR_V;
         }
         
-        // Current Pixel Position (rect)
         this.rect = {x: 0, y: 0, w: this.width, h: this.height};
         this.updatePixelPos();
     }
@@ -127,48 +232,34 @@ class Block {
     }
 
     draw() {
-        // Draw Shadow
+        // Shadow
         ctx.fillStyle = "rgba(0, 0, 0, 0.16)";
         roundRect(this.rect.x + 4, this.rect.y + 4, this.rect.w, this.rect.h, 6);
         ctx.fill();
-
-        // Draw Main Body
+        // Body
         ctx.fillStyle = this.color;
         roundRect(this.rect.x, this.rect.y, this.rect.w, this.rect.h, 6);
         ctx.fill();
-
-        // 3D Bevels (Lines)
+        // Bevels
         ctx.lineWidth = 2;
         ctx.strokeStyle = "rgb(255, 255, 255)"; 
         ctx.beginPath();
-        ctx.moveTo(this.rect.x + 3, this.rect.y + 2);
-        ctx.lineTo(this.rect.x + this.rect.w - 3, this.rect.y + 2);
-        ctx.moveTo(this.rect.x + 2, this.rect.y + 3);
-        ctx.lineTo(this.rect.x + 2, this.rect.y + this.rect.h - 3);
+        ctx.moveTo(this.rect.x + 3, this.rect.y + 2); ctx.lineTo(this.rect.x + this.rect.w - 3, this.rect.y + 2);
+        ctx.moveTo(this.rect.x + 2, this.rect.y + 3); ctx.lineTo(this.rect.x + 2, this.rect.y + this.rect.h - 3);
         ctx.stroke();
-
         ctx.strokeStyle = "rgb(0, 0, 0)";
         ctx.beginPath();
-        ctx.moveTo(this.rect.x + 3, this.rect.y + this.rect.h - 2);
-        ctx.lineTo(this.rect.x + this.rect.w - 3, this.rect.y + this.rect.h - 2);
-        ctx.moveTo(this.rect.x + this.rect.w - 2, this.rect.y + 3);
-        ctx.lineTo(this.rect.x + this.rect.w - 2, this.rect.y + this.rect.h - 3);
+        ctx.moveTo(this.rect.x + 3, this.rect.y + this.rect.h - 2); ctx.lineTo(this.rect.x + this.rect.w - 3, this.rect.y + this.rect.h - 2);
+        ctx.moveTo(this.rect.x + this.rect.w - 2, this.rect.y + 3); ctx.lineTo(this.rect.x + this.rect.w - 2, this.rect.y + this.rect.h - 3);
         ctx.stroke();
     }
 }
 
-// Helper for rounded rects in canvas
-function roundRect(x, y, w, h, r) {
-    ctx.beginPath();
-    ctx.roundRect(x, y, w, h, r);
-}
+function roundRect(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
 
-// --- LOGIC ENGINE TRANSLATION ---
-
+// --- LOGIC ---
 function checkGridCollision(c, r, b, allBlocks) {
     if (c < 0 || r < 0) return true;
-    
-    // Self cells
     let cells = [];
     if (b.orientation === 'H') {
         if (c + b.length > GRID_SIZE) return true;
@@ -177,8 +268,6 @@ function checkGridCollision(c, r, b, allBlocks) {
         if (r + b.length > GRID_SIZE) return true;
         for(let i=0; i<b.length; i++) cells.push(c + "," + (r+i));
     }
-
-    // Check against others
     for (let o of allBlocks) {
         if (o.id === b.id) continue;
         let oCells = [];
@@ -186,85 +275,48 @@ function checkGridCollision(c, r, b, allBlocks) {
             if(o.orientation === 'H') oCells.push((o.col+i) + "," + o.row);
             else oCells.push(o.col + "," + (o.row+i));
         }
-        
-        // Intersection check
-        for(let cell of cells) {
-            if(oCells.includes(cell)) return true;
-        }
+        for(let cell of cells) if(oCells.includes(cell)) return true;
     }
     return false;
 }
 
 function checkPixelCollision(rect, activeB, allBlocks) {
-    // Boundaries
     if (rect.x < GRID_OFFSET_X) return true;
     if (rect.x + rect.w > GRID_OFFSET_X + (GRID_SIZE * TILE_SIZE)) return true;
     if (rect.y < GRID_OFFSET_Y) return true;
     if (rect.y + rect.h > GRID_OFFSET_Y + (GRID_SIZE * TILE_SIZE)) return true;
-
-    // Collisions with blocks
-    // Inflate logic: we basically check if rects overlap slightly
     for (let o of allBlocks) {
         if (o.id === activeB.id) continue;
-        
-        // Simple AABB Collision
-        if (rect.x < o.rect.x + o.rect.w - 2 &&
-            rect.x + rect.w > o.rect.x + 2 &&
-            rect.y < o.rect.y + o.rect.h - 2 &&
-            rect.y + rect.h > o.rect.y + 2) {
-                return true;
-        }
+        if (rect.x < o.rect.x + o.rect.w - 2 && rect.x + rect.w > o.rect.x + 2 &&
+            rect.y < o.rect.y + o.rect.h - 2 && rect.y + rect.h > o.rect.y + 2) return true;
     }
     return false;
 }
 
-// --- SOLVER (BFS) ---
 function solveBoard(simBlocks) {
-    // Clone blocks for simulation
-    let sim = simBlocks.map(b => ({
-        col: b.col, row: b.row, length: b.length, 
-        orientation: b.orientation, is_target: b.is_target, id: b.id
-    }));
-    
+    let sim = simBlocks.map(b => ({ col: b.col, row: b.row, length: b.length, orientation: b.orientation, is_target: b.is_target, id: b.id }));
     let targetIdx = sim.findIndex(b => b.is_target);
-    
-    // State is a string key of positions "c,r|c,r|..."
     let startState = sim.map(b => b.col + "," + b.row).join("|");
     let queue = [{state: startState, depth: 0}];
     let visited = new Set([startState]);
-    let maxDepth = 40; // Limit for performance
+    let maxDepth = 40; 
 
     while(queue.length > 0) {
         let current = queue.shift();
         if(current.depth > maxDepth) return -1;
-
-        // Apply state positions to sim array
         let positions = current.state.split("|");
-        for(let i=0; i<sim.length; i++) {
-            let p = positions[i].split(",");
-            sim[i].col = parseInt(p[0]);
-            sim[i].row = parseInt(p[1]);
-        }
-
-        // Check Win
+        for(let i=0; i<sim.length; i++) { let p = positions[i].split(","); sim[i].col = parseInt(p[0]); sim[i].row = parseInt(p[1]); }
         if(sim[targetIdx].col === GRID_SIZE - 2) return current.depth;
 
-        // Generate Moves
         for(let i=0; i<sim.length; i++) {
             let b = sim[i];
             let moves = b.orientation === 'H' ? [[-1,0], [1,0]] : [[0,-1], [0,1]];
-            
             for(let m of moves) {
                 if(!checkGridCollision(b.col + m[0], b.row + m[1], b, sim)) {
-                    // Make new state string
                     let newPositions = [...positions];
                     newPositions[i] = (b.col + m[0]) + "," + (b.row + m[1]);
                     let newState = newPositions.join("|");
-                    
-                    if(!visited.has(newState)) {
-                        visited.add(newState);
-                        queue.push({state: newState, depth: current.depth + 1});
-                    }
+                    if(!visited.has(newState)) { visited.add(newState); queue.push({state: newState, depth: current.depth + 1}); }
                 }
             }
         }
@@ -273,190 +325,107 @@ function solveBoard(simBlocks) {
 }
 
 // --- GAME LOOP ---
-
 function startNewGame() {
     isGenerating = true;
-    render(); // Draw loading text immediately
-
-    // Delay 10ms to let browser render the text, then calculate
+    render(); 
     setTimeout(() => {
         let tempBlocks = [];
         let startTime = Date.now();
-        
         while(true) {
-            // Safety break for 1.5s limit
             if (Date.now() - startTime > 1500 && tempBlocks.length > 5) break; 
-
             tempBlocks = [new Block(Math.random() < 0.5 ? 0 : 1, 2, 2, 'H', true)];
-            let targetCount = Math.floor(Math.random() * (19 - 14) + 14); // 14-18
+            let targetCount = Math.floor(Math.random() * (19 - 14) + 14); 
             let fails = 0;
-
             while(tempBlocks.length < targetCount && fails < 50) {
                 let l = Math.random() < 0.6 ? 2 : 3;
                 let o = Math.random() < 0.5 ? 'H' : 'V';
                 let c, r;
-                
-                if(o === 'H') {
-                    c = Math.floor(Math.random() * (GRID_SIZE - l + 1));
-                    r = Math.floor(Math.random() * GRID_SIZE);
-                } else {
-                    c = Math.floor(Math.random() * GRID_SIZE);
-                    r = Math.floor(Math.random() * (GRID_SIZE - l + 1));
-                }
-
+                if(o === 'H') { c = Math.floor(Math.random() * (GRID_SIZE - l + 1)); r = Math.floor(Math.random() * GRID_SIZE); } 
+                else { c = Math.floor(Math.random() * GRID_SIZE); r = Math.floor(Math.random() * (GRID_SIZE - l + 1)); }
                 if(r === 2 && o === 'H') { fails++; continue; }
-
                 let nb = new Block(c, r, l, o);
-                // Check collision using tempBlocks (needs partial logic)
-                if(!checkGridCollision(c, r, nb, tempBlocks)) {
-                    tempBlocks.push(nb);
-                } else {
-                    fails++;
-                }
+                if(!checkGridCollision(c, r, nb, tempBlocks)) tempBlocks.push(nb); else fails++;
             }
-
             if(tempBlocks.length >= 13) {
                 let result = solveBoard(tempBlocks);
-                if(result >= 10) {
-                    blocks = tempBlocks;
-                    won = false;
-                    moves = 0;
-                    break;
-                }
+                if(result >= 10) { blocks = tempBlocks; won = false; moves = 0; break; }
             }
         }
         isGenerating = false;
-        render(); // Re-draw with blocks
+        render(); 
     }, 50);
 }
 
-// --- RENDERING ---
 function render() {
-    // Clear
-    ctx.fillStyle = COLOR_BG;
-    ctx.fillRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+    // Only render if game screen is active
+    if(!document.getElementById('screen-game').classList.contains('active')) return;
 
-    // Draw Frame
-    let frameX = GRID_OFFSET_X - 20;
-    let frameY = GRID_OFFSET_Y - 20;
-    let frameW = GRID_SIZE * TILE_SIZE + 40;
-    let frameH = GRID_SIZE * TILE_SIZE + 40;
+    ctx.fillStyle = COLOR_BG; ctx.fillRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+    
+    let frameX = GRID_OFFSET_X - 20; let frameY = GRID_OFFSET_Y - 20;
+    let frameW = GRID_SIZE * TILE_SIZE + 40; let frameH = GRID_SIZE * TILE_SIZE + 40;
+    ctx.fillStyle = COLOR_FRAME; roundRect(frameX, frameY, frameW, frameH, 12); ctx.fill();
+    ctx.fillStyle = COLOR_WELL; roundRect(frameX+15, frameY+15, frameW-30, frameH-30, 4); ctx.fill();
+    ctx.fillStyle = "black"; ctx.fillRect(frameX + frameW - 25, GRID_OFFSET_Y + 2 * TILE_SIZE + 5, 30, TILE_SIZE - 10);
 
-    ctx.fillStyle = COLOR_FRAME;
-    roundRect(frameX, frameY, frameW, frameH, 12);
-    ctx.fill();
-
-    // Well
-    ctx.fillStyle = COLOR_WELL;
-    roundRect(frameX+15, frameY+15, frameW-30, frameH-30, 4);
-    ctx.fill();
-
-    // Exit
-    ctx.fillStyle = "black";
-    ctx.fillRect(frameX + frameW - 25, GRID_OFFSET_Y + 2 * TILE_SIZE + 5, 30, TILE_SIZE - 10);
-
-    // If generating, show text
     if(isGenerating) {
-        ctx.fillStyle = COLOR_FRAME;
-        ctx.font = "bold 40px Verdana";
-        ctx.textAlign = "center";
-        ctx.fillText("Generating...", SCREEN_WIDTH/2, SCREEN_HEIGHT/2);
-        ctx.textAlign = "left";
-        return;
+        ctx.fillStyle = COLOR_FRAME; ctx.font = "bold 24px Verdana"; ctx.textAlign = "center";
+        ctx.fillText("Generating...", SCREEN_WIDTH/2, SCREEN_HEIGHT/2); ctx.textAlign = "left"; return;
     }
 
-    // Draw Blocks
     for(let b of blocks) b.draw();
 
-    // Draw UI Text
     ctx.fillStyle = won ? "rgb(0, 150, 0)" : COLOR_TEXT;
-    ctx.font = "bold 40px Verdana";
-    ctx.textAlign = "center";
-    if(won) {
-        ctx.fillText("SOLVED!", SCREEN_WIDTH/2, 80);
-    } else {
-        ctx.font = "18px Verdana";
-        ctx.fillText(`Moves: ${moves}  |  'N' for New Puzzle`, SCREEN_WIDTH/2, 100);
-    }
+    ctx.font = "bold 24px Verdana"; ctx.textAlign = "center";
+    if(won) ctx.fillText("SOLVED!", SCREEN_WIDTH/2, 100);
+    else { ctx.font = "18px Verdana"; ctx.fillText(`Moves: ${moves}`, SCREEN_WIDTH/2, 100); }
     ctx.textAlign = "left";
+    
+    requestAnimationFrame(render);
 }
 
-// --- INPUT HANDLING ---
+// --- INPUTS ---
 function handleStart(x, y) {
     if(won) return;
     for(let b of blocks) {
         if(x >= b.rect.x && x <= b.rect.x + b.rect.w && y >= b.rect.y && y <= b.rect.y + b.rect.h) {
-            selected = b;
-            dragOffset.x = b.rect.x - x;
-            dragOffset.y = b.rect.y - y;
-            startP = {col: b.col, row: b.row};
-            break;
+            selected = b; dragOffset.x = b.rect.x - x; dragOffset.y = b.rect.y - y;
+            startP = {col: b.col, row: b.row}; break;
         }
     }
 }
-
 function handleMove(x, y) {
     if(!selected) return;
-    
-    // Pixel Perfect Logic from Python
-    let sb = selected;
-    let targetX = x + dragOffset.x;
-    let targetY = y + dragOffset.y;
-
+    let sb = selected; let targetX = x + dragOffset.x; let targetY = y + dragOffset.y;
     if (sb.orientation === 'H') {
-        let direction = targetX > sb.rect.x ? 1 : -1;
-        let dist = Math.abs(targetX - sb.rect.x);
+        let direction = targetX > sb.rect.x ? 1 : -1; let dist = Math.abs(targetX - sb.rect.x);
         for(let i=0; i<dist; i++) {
             let testRect = { ...sb.rect, x: sb.rect.x + direction };
-            if(!checkPixelCollision(testRect, sb, blocks)) {
-                sb.rect.x += direction;
-            } else break;
+            if(!checkPixelCollision(testRect, sb, blocks)) sb.rect.x += direction; else break;
         }
     } else {
-        let direction = targetY > sb.rect.y ? 1 : -1;
-        let dist = Math.abs(targetY - sb.rect.y);
+        let direction = targetY > sb.rect.y ? 1 : -1; let dist = Math.abs(targetY - sb.rect.y);
         for(let i=0; i<dist; i++) {
             let testRect = { ...sb.rect, y: sb.rect.y + direction };
-            if(!checkPixelCollision(testRect, sb, blocks)) {
-                sb.rect.y += direction;
-            } else break;
+            if(!checkPixelCollision(testRect, sb, blocks)) sb.rect.y += direction; else break;
         }
     }
-    render(); // Redraw on every move
 }
-
 function handleEnd() {
     if(!selected) return;
     let sb = selected;
-
-    // Snap to grid logic
     let idealCol = Math.round((sb.rect.x - GRID_OFFSET_X) / TILE_SIZE);
     let idealRow = Math.round((sb.rect.y - GRID_OFFSET_Y) / TILE_SIZE);
-
-    if(sb.orientation === 'H') idealRow = sb.row;
-    else idealCol = sb.col;
-
-    if(!checkGridCollision(idealCol, idealRow, sb, blocks)) {
-        sb.col = idealCol;
-        sb.row = idealRow;
-    } else {
-        // Snap back if invalid
-        // (Or implement the partial step-back logic if desired, but Python code mostly snaps)
-        // Revert to startP if collision check fails on drop? 
-        // Python code updates pixel pos based on col/row at end.
-    }
-
-    sb.updatePixelPos(); // Snap visual to grid
-    
+    if(sb.orientation === 'H') idealRow = sb.row; else idealCol = sb.col;
+    if(!checkGridCollision(idealCol, idealRow, sb, blocks)) { sb.col = idealCol; sb.row = idealRow; }
+    sb.updatePixelPos();
     if(sb.col !== startP.col || sb.row !== startP.row) {
         moves++;
         if(sb.is_target && sb.col === 4) won = true;
     }
     selected = null;
-    render();
 }
 
-// Listeners
 canvas.addEventListener('mousedown', e => handleStart(e.clientX, e.clientY));
 canvas.addEventListener('mousemove', e => handleMove(e.clientX, e.clientY));
 canvas.addEventListener('mouseup', handleEnd);
@@ -464,24 +433,11 @@ canvas.addEventListener('touchstart', e => { e.preventDefault(); handleStart(e.t
 canvas.addEventListener('touchmove', e => { e.preventDefault(); handleMove(e.touches[0].clientX, e.touches[0].clientY); }, {passive: false});
 canvas.addEventListener('touchend', handleEnd);
 
-// Keyboard 'N'
-document.addEventListener('keydown', (e) => {
-    if(e.key.toLowerCase() === 'n') watchAd(); 
-});
-
 // --- ADS & INIT ---
 function watchAd() {
     document.getElementById('ad-overlay').style.display = 'flex';
-    // START GENERATION WHILE AD PLAYS
-    // We run startNewGame inside a timeout after ad finishes or during?
-    // User requested: "Generate level while user is watching ad"
-    // Since JS is single-threaded, we can't block the ad timer.
-    // The startNewGame function uses setTimeout/intervals so it won't freeze the timer.
-    
-    // We delay the generation slightly to ensure overlay renders
-    setTimeout(() => {
-        startNewGame(); 
-    }, 100);
+    // Generate while waiting
+    setTimeout(() => { startNewGame(); }, 100);
 
     let timeLeft = 5;
     let btn = document.getElementById('close-ad-btn');
@@ -501,14 +457,17 @@ function watchAd() {
 
 async function finishAd() {
     document.getElementById('ad-overlay').style.display = 'none';
-    // Sync with server for money (keep this fetch)
-    const userId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 12345;
-    await fetch('/api/ads/confirm', { method:'POST', body:JSON.stringify({user_id:userId}) });
+    showScreen('screen-game'); // Ensure we are on game screen
+    
+    // Sync with server for money
+    try {
+        const userId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 12345;
+        await fetch('/api/ads/confirm', { method:'POST', body:JSON.stringify({user_id:userId}) });
+    } catch(e) {}
 }
 
-// Initial Start
-watchAd();
-
+// Initial Load
+loadUserData();
 </script>
 </body>
 </html>
