@@ -2,13 +2,13 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 import uvicorn
-import game_engine
-import os 
+import os
 from typing import List, Dict
 
 app = FastAPI()
 
 # --- DATABASE (In-Memory) ---
+# Keeps track of money/ads. Reset on restart.
 users = {}
 GLOBAL_POOL = 0.00 
 RECENT_LOGS = [] 
@@ -21,21 +21,18 @@ else:
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
+    # This serves your new "All-in-One" index.html
     return templates.TemplateResponse("index.html", {"request": request})
 
-@app.get("/api/generate_level")
-def get_level():
-    return game_engine.generate_puzzle()
-
-@app.post("/api/submit_game")
-async def submit_game(req: Request):
-    return {"status": "ok"}
+# --- ADS & WALLET ENDPOINTS ---
+# These are still needed for your ad revenue logic
 
 @app.post("/api/ads/confirm")
 async def confirm_ad(req: Request):
     global GLOBAL_POOL
     data = await req.json()
     uid = data.get("user_id")
+    # Simple name extraction
     name = data.get("first_name", f"User {uid}") 
 
     if uid not in users:
@@ -43,6 +40,7 @@ async def confirm_ad(req: Request):
     
     users[uid]["ads_watched"] += 1
     
+    # Add money to pool (Logic remains same)
     added_amount = 0.10
     GLOBAL_POOL += added_amount
     
@@ -55,6 +53,7 @@ async def confirm_ad(req: Request):
 
 @app.get("/api/user/{user_id}")
 def get_user(user_id: int):
+    # Leaderboard Logic
     sorted_users = sorted(users.values(), key=lambda x: x['ads_watched'], reverse=True)
     user_data = users.get(user_id, {"wallet": 0.0, "ads_watched": 0, "name": "You"})
     try:
@@ -70,8 +69,13 @@ def get_user(user_id: int):
         "top_players": sorted_users[:5] 
     }
 
-# --- THE FIX IS HERE ---
+# --- SUBMIT ENDPOINT ---
+# Used if you want to track solved puzzles for a tournament later
+@app.post("/api/submit_game")
+async def submit_game(req: Request):
+    return {"status": "ok"}
+
 if __name__ == "__main__":
-    # Render assigns a random port (e.g., 10000). We MUST use it.
+    # Render assigns a random port. We MUST use it.
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)
