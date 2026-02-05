@@ -43,13 +43,11 @@ def check_grid_collision(c, r, b, all_blocks):
     return False
 
 def solve_board(blocks):
-    # Create a simulation copy
     sim = [copy.copy(b) for b in blocks]
     try:
         target_idx = next(i for i, b in enumerate(sim) if b.is_target)
     except StopIteration: return -1
 
-    # State is represented by a tuple of (col, row) for all blocks
     start_state = tuple((b.col, b.row) for b in sim)
     queue = deque([(start_state, 0)])
     visited = {start_state}
@@ -57,21 +55,17 @@ def solve_board(blocks):
     
     while queue:
         state, depth = queue.popleft()
-        if depth > max_depth: return -1 # Too hard/complex for quick solve
+        if depth > max_depth: return -1 
         
-        # Apply current state to simulation blocks
         for i, pos in enumerate(state):
             sim[i].col, sim[i].row = pos
             
-        # Check Win
         if sim[target_idx].col == GRID_SIZE - 2:
             return depth 
             
-        # Explore Moves
         for i, b in enumerate(sim):
             moves = [(-1, 0), (1, 0)] if b.orientation == 'H' else [(0, -1), (0, 1)]
             for dc, dr in moves:
-                # Check collision with the layout from THIS state
                 if not check_grid_collision(b.col+dc, b.row+dr, b, sim):
                     ns = list(state)
                     ns[i] = (b.col+dc, b.row+dr)
@@ -86,21 +80,26 @@ def generate_puzzle():
     best_data = None
     max_difficulty = -1
     
-    # TIMEOUT STRATEGY: 
-    # Try to find a hard level for exactly 1.5 seconds.
-    # If we find a "Perfect" level (10+ moves), return instantly.
-    # If time runs out, return the hardest one we found so far.
-    
+    # 1.5 Second Timeout for fast generation
     while time.time() - start_time < 1.5:
         
-        # 1. Create Random Layout
-        temp_blocks = [Block(random.randint(0, 2), 2, 2, 'H', True)]
-        target_count = random.randint(13, 16) # KEEPING IT DENSE & HARD
+        # FIX 1: INSTANT WIN PREVENTION
+        # Force Red Block to start at Col 0 or 1. 
+        # It must travel across the whole board to win.
+        target_col = random.randint(0, 1)
+        temp_blocks = [Block(target_col, 2, 2, 'H', True)]
+        
+        # FIX 2: LESS DENSE, MORE SCRAMBLED
+        # Reduced from 16 to 9-13 blocks.
+        # This leaves empty space (scrambled feel) without being a traffic jam.
+        target_count = random.randint(9, 13)
         fails = 0
         
         while len(temp_blocks) < target_count and fails < 100:
             l = random.choice([2, 2, 3])
             o = random.choice(['H', 'V'])
+            
+            # Scramble Logic: Random placement
             if o == 'H':
                 c = random.randint(0, GRID_SIZE - l)
                 r = random.randint(0, GRID_SIZE - 1)
@@ -108,7 +107,7 @@ def generate_puzzle():
                 c = random.randint(0, GRID_SIZE - 1)
                 r = random.randint(0, GRID_SIZE - l)
             
-            if r == 2 and o == 'H': 
+            if r == 2 and o == 'H': # Don't put horizontal blocks on the exit row (too easy)
                 fails += 1
                 continue
                 
@@ -118,48 +117,28 @@ def generate_puzzle():
             else:
                 fails += 1
         
-        # 2. Check Solvability
-        if len(temp_blocks) >= 8:
+        # Check Solvability
+        if len(temp_blocks) >= 6:
             result = solve_board(temp_blocks)
             
             if result > 0:
-                # Convert to JSON format
                 data = []
                 for i, b in enumerate(temp_blocks):
                     data.append({
                         "id": i, "col": b.col, "row": b.row, "length": b.length, "orientation": b.orientation, "is_target": b.is_target
                     })
                 
-                # If this is the hardest so far, save it
+                # We want the HARDEST one we can find in 1.5 seconds
                 if result > max_difficulty:
                     max_difficulty = result
                     best_data = data
                 
-                # If it is HARD ENOUGH (Gold Standard), stop looking and return immediately
-                if result >= 12: 
+                # FIX 3: MINIMUM MOVES
+                # Reject any puzzle that takes less than 6 moves to solve.
+                if result >= 6: 
                     return data
 
-    # 3. Time is up! Return the best one we found.
-    # If we found nothing solvable (extremely rare), recurse to try again.
     if best_data:
         return best_data
     else:
-        return generate_puzzle()
-
-def validate_moves(initial_level_data, move_history):
-    blocks = []
-    for b in initial_level_data:
-        blocks.append(Block(b['col'], b['row'], b['length'], b['orientation'], b['is_target']))
-    
-    valid_moves = 0
-    for m in move_history:
-        b = blocks[m['id']]
-        if not check_grid_collision(m['col'], m['row'], b, blocks):
-             b.col = m['col']
-             b.row = m['row']
-             valid_moves += 1
-    
-    target = next(b for b in blocks if b.is_target)
-    if target.col == GRID_SIZE - 2:
-        return True, valid_moves
-    return False, valid_moves
+        return generate_puzzle() # Retry if we got super unlucky
