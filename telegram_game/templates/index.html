@@ -21,7 +21,7 @@
         .log-item { padding: 2px 0; border-bottom: 1px dashed #ccc; }
         
         /* LEADERBOARD */
-        .lb-row { display: flex; justify-content: space-between; font-size: 14px; padding: 4px 0; }
+        .lb-row { display: flex; justify-content: space-between; font-size: 14px; padding: 4px 0; border-bottom: 1px solid rgba(0,0,0,0.1); }
         
         canvas { background-color: transparent; touch-action: none; margin-top: 10px; }
     </style>
@@ -46,7 +46,7 @@
                 <div style="font-size:20px; font-weight:bold" id="my-rank">-</div>
             </div>
             <div>
-                <div style="font-size:12px">SCORE</div>
+                <div style="font-size:12px">SOLVED</div>
                 <div style="font-size:20px; font-weight:bold" id="my-score">0</div>
             </div>
         </div>
@@ -58,7 +58,8 @@
     <div id="screen-leaderboard" class="screen" style="justify-content: center;">
         <h1>Top Players</h1>
         <div class="card" id="lb-list">
-            </div>
+            <div>Loading...</div>
+        </div>
         <button class="btn" onclick="showScreen('screen-home')">⬅ Back to Home</button>
     </div>
 
@@ -112,7 +113,7 @@
         let tileW = maxW / GRID_SIZE;
         let TILE_SIZE = Math.floor(tileW);
         let GRID_OFFSET_X = (canvas.width - (GRID_SIZE * TILE_SIZE)) / 2;
-        let GRID_OFFSET_Y = (canvas.height - (GRID_SIZE * TILE_SIZE)) / 2; // Centered
+        let GRID_OFFSET_Y = (canvas.height - (GRID_SIZE * TILE_SIZE)) / 2;
 
         let gameState = { blocks: [], moves: 0, won: false };
         let selectedBlock = null;
@@ -148,8 +149,9 @@
 
                 // 4. Update Leaderboard
                 let lbHTML = "";
+                if(d.top_players.length === 0) lbHTML = "<div>No players yet</div>";
                 d.top_players.forEach((p, index) => {
-                    let icon = index === 0 ? "🥇" : (index === 1 ? "🥈" : "👤");
+                    let icon = index === 0 ? "🥇" : (index === 1 ? "🥈" : (index === 2 ? "🥉" : "👤"));
                     lbHTML += `<div class="lb-row"><span>${icon} ${p.name}</span><b>${p.ads_watched}</b></div>`;
                 });
                 document.getElementById('lb-list').innerHTML = lbHTML;
@@ -161,7 +163,8 @@
             showScreen('screen-game');
             gameState.blocks = []; 
             // "Loading" text
-            ctx.fillStyle = "black"; ctx.fillText("Loading Level...", 50, 100);
+            ctx.clearRect(0,0,canvas.width,canvas.height);
+            ctx.fillStyle = "rgb(80, 50, 30)"; ctx.font = "20px Verdana"; ctx.fillText("Building Level...", canvas.width/2 - 70, canvas.height/2);
             
             let res = await fetch('/api/generate_level');
             let levelData = await res.json();
@@ -174,6 +177,7 @@
             gameState.moves = 0; 
             gameState.won = false;
             document.getElementById('move-count').innerText = 0;
+            requestAnimationFrame(gameLoop);
         }
 
         function watchAd() { 
@@ -191,7 +195,7 @@
 
         function checkAdsAndPlay() { startGame(); }
 
-        // --- GAME ENGINE (Visuals) ---
+        // --- GAME LOGIC ---
         function calculateRect(col, row, length, orientation) {
             let w = orientation === 'H' ? length * TILE_SIZE - (GAP * 2) : TILE_SIZE - (GAP * 2);
             let h = orientation === 'V' ? length * TILE_SIZE - (GAP * 2) : TILE_SIZE - (GAP * 2);
@@ -204,25 +208,21 @@
             let color = b.is_target ? C_RED : (b.orientation === 'H' ? C_H : C_V);
             let { x, y, w, h } = b.rect;
             ctx.fillStyle = color; ctx.beginPath(); ctx.roundRect(x, y, w, h, 6); ctx.fill();
-            // Simple Borders
             ctx.strokeStyle = "rgba(0,0,0,0.3)"; ctx.lineWidth = 2; ctx.stroke();
         }
 
         function gameLoop() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            // Draw Board Frame
+            // Frame
             let frameSize = GRID_SIZE * TILE_SIZE + 20;
-            ctx.fillStyle = C_FRAME; 
-            ctx.fillRect(GRID_OFFSET_X - 10, GRID_OFFSET_Y - 10, frameSize, frameSize);
-            ctx.fillStyle = C_WELL; 
-            ctx.fillRect(GRID_OFFSET_X, GRID_OFFSET_Y, GRID_SIZE * TILE_SIZE, GRID_SIZE * TILE_SIZE);
+            ctx.fillStyle = C_FRAME; ctx.fillRect(GRID_OFFSET_X - 10, GRID_OFFSET_Y - 10, frameSize, frameSize);
+            ctx.fillStyle = C_WELL; ctx.fillRect(GRID_OFFSET_X, GRID_OFFSET_Y, GRID_SIZE * TILE_SIZE, GRID_SIZE * TILE_SIZE);
             
-            // Exit Hole
-            ctx.fillStyle = "black"; 
-            ctx.fillRect(GRID_OFFSET_X + (GRID_SIZE * TILE_SIZE), GRID_OFFSET_Y + (2 * TILE_SIZE) + 5, 20, TILE_SIZE - 10);
+            // Exit
+            ctx.fillStyle = "black"; ctx.fillRect(GRID_OFFSET_X + (GRID_SIZE * TILE_SIZE), GRID_OFFSET_Y + (2 * TILE_SIZE) + 5, 20, TILE_SIZE - 10);
 
-            gameState.blocks.forEach(drawBlock);
+            if(gameState.blocks) gameState.blocks.forEach(drawBlock);
             
             if(gameState.won) {
                 ctx.fillStyle = "rgba(0,0,0,0.7)";
@@ -233,9 +233,12 @@
             if(document.getElementById('screen-game').classList.contains('active')) { requestAnimationFrame(gameLoop); }
         }
 
-        // --- INPUT HANDLING ---
+        // --- INPUTS ---
         function handleStart(x, y) {
             if(gameState.won) return;
+            // Check top buttons click
+            if(y < 80) return; // Let HTML buttons handle top clicks
+
             for(let b of gameState.blocks) {
                 if(x >= b.rect.x && x <= b.rect.x + b.rect.w && y >= b.rect.y && y <= b.rect.y + b.rect.h) {
                     selectedBlock = b; dragOffset.x = b.rect.x - x; dragOffset.y = b.rect.y - y;
@@ -259,7 +262,9 @@
             let sb = selectedBlock;
             let idealCol = Math.round((sb.rect.x - GRID_OFFSET_X) / TILE_SIZE); let idealRow = Math.round((sb.rect.y - GRID_OFFSET_Y) / TILE_SIZE);
             if(sb.orientation === 'H') idealRow = sb.row; else idealCol = sb.col;
-            if(!checkCollisionGrid(idealCol, idealRow, sb, gameState.blocks)) { sb.col = idealCol; sb.row = idealRow; } else { sb.col = sb.startCol; sb.row = sb.startRow; }
+            if(!checkCollisionGrid(idealCol, idealRow, sb, gameState.blocks)) { sb.col = idealCol; sb.row = idealRow; } 
+            else { sb.col = sb.startCol; sb.row = sb.startRow; }
+            
             sb.rect = calculateRect(sb.col, sb.row, sb.length, sb.orientation);
             if(sb.col !== sb.startCol || sb.row !== sb.startRow) {
                 gameState.moves++; document.getElementById('move-count').innerText = gameState.moves;
@@ -268,7 +273,6 @@
             selectedBlock = null;
         }
         
-        // --- HELPERS ---
         function checkCollisionVisual(rect, activeB) {
             if (rect.x < GRID_OFFSET_X) return true; if (rect.x + rect.w > GRID_OFFSET_X + (GRID_SIZE * TILE_SIZE)) return true;
             if (rect.y < GRID_OFFSET_Y) return true; if (rect.y + rect.h > GRID_OFFSET_Y + (GRID_SIZE * TILE_SIZE)) return true;
@@ -291,7 +295,6 @@
         }
         async function submitGame() { await fetch('/api/submit_game', { method: 'POST', body: JSON.stringify({ user_id: userId }) }); }
 
-        // Event Listeners
         canvas.addEventListener('mousedown', e => handleStart(e.clientX, e.clientY));
         canvas.addEventListener('mousemove', e => handleMove(e.clientX, e.clientY));
         canvas.addEventListener('mouseup', handleEnd);
@@ -299,7 +302,6 @@
         canvas.addEventListener('touchmove', e => { e.preventDefault(); handleMove(e.touches[0].clientX, e.touches[0].clientY); }, {passive: false});
         canvas.addEventListener('touchend', handleEnd);
         
-        // Start on Load
         loadUserData();
     </script>
 </body>
