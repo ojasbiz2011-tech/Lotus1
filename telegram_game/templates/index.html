@@ -6,74 +6,77 @@
     <title>Dense Wood Escape</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
+        /* ORIGINAL STYLES PRESERVED */
         body { margin: 0; padding: 0; background-color: rgb(250, 242, 230); font-family: 'Verdana', sans-serif; overflow: hidden; user-select: none; }
-        .screen { display: none; width: 100%; height: 100vh; position: absolute; top: 0; left: 0; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 20px; }
+        .screen { display: none; width: 100%; height: 100vh; position: absolute; top: 0; left: 0; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 20px; box-sizing: border-box; }
         .active { display: flex; }
-        
-        /* UI ELEMENTS */
-        h1 { color: rgb(80, 50, 30); margin-bottom: 5px; font-size: 22px; font-weight: bold; }
-        .btn { background: rgb(101, 67, 33); color: white; padding: 12px 25px; border-radius: 8px; font-weight: bold; margin: 5px; cursor: pointer; border: 2px solid rgb(80, 50, 30); font-size: 16px; }
+        h1 { color: rgb(80, 50, 30); margin-bottom: 10px; font-size: 24px; font-weight: bold; text-align: center; }
+        .btn { background: rgb(101, 67, 33); color: white; padding: 15px 30px; border-radius: 8px; font-weight: bold; margin: 10px; cursor: pointer; border: 2px solid rgb(80, 50, 30); box-shadow: 0 4px 6px rgba(0,0,0,0.3); font-size: 16px; }
+        .card { background: rgb(250, 242, 230); border: 4px solid rgb(101, 67, 33); padding: 20px; border-radius: 12px; width: 85%; text-align: center; margin-bottom: 15px; color: rgb(80, 50, 30); box-shadow: 0 4px 0 rgba(101,67,33,0.2); }
+        canvas { background-color: transparent; touch-action: none; }
+
+        /* NEW STYLES (MATCHING YOUR THEME) */
         .btn-small { padding: 8px 15px; font-size: 14px; margin: 0 5px; }
-        .card { background: rgb(250, 242, 230); border: 3px solid rgb(101, 67, 33); padding: 15px; border-radius: 12px; width: 85%; text-align: center; margin-bottom: 10px; color: rgb(80, 50, 30); box-shadow: 0 4px 0 rgba(101,67,33,0.2); }
-        
-        /* SCROLLING LOG */
-        .log-box { height: 80px; overflow-y: auto; font-size: 12px; text-align: left; background: rgba(0,0,0,0.05); border-radius: 5px; padding: 5px; margin-top: 5px; }
-        .log-item { padding: 2px 0; border-bottom: 1px dashed #ccc; }
-        
-        /* LEADERBOARD */
-        .lb-row { display: flex; justify-content: space-between; font-size: 14px; padding: 4px 0; border-bottom: 1px solid rgba(0,0,0,0.1); }
-        
-        canvas { background-color: transparent; touch-action: none; margin-top: 10px; }
+        .log-box { 
+            height: 80px; overflow-y: auto; font-size: 12px; text-align: left; 
+            background: rgba(101, 67, 33, 0.05); /* Light Wood Tint */
+            border: 2px solid rgb(101, 67, 33);
+            border-radius: 8px; padding: 5px; margin-top: 10px; 
+        }
+        .log-item { padding: 3px 0; border-bottom: 1px dashed rgb(101, 67, 33); color: rgb(80, 50, 30); }
+        .lb-row { display: flex; justify-content: space-between; font-size: 14px; padding: 8px 0; border-bottom: 1px solid rgba(101,67,33,0.3); }
+        .stat-row { display: flex; justify-content: space-around; width: 100%; margin-top: 5px; }
+        .stat-box { display: flex; flex-direction: column; align-items: center; }
+        .stat-val { font-size: 20px; font-weight: bold; color: rgb(101, 67, 33); }
+        .stat-label { font-size: 10px; opacity: 0.8; }
     </style>
 </head>
 <body>
 
-    <div id="screen-home" class="screen active" style="justify-content: center;">
+    <div id="screen-home" class="screen active">
         <h1>Dense Wood Escape</h1>
         
         <div class="card">
             <h3>🏆 Weekly Prize Pool</h3>
-            <h2 style="color: rgb(0, 150, 0); font-size: 32px;" id="pool-display">...</h2>
+            <h2 style="color: rgb(0, 150, 0); font-size: 32px; margin: 10px 0;" id="pool-display">...</h2>
             
             <div class="log-box" id="activity-log">
                 <div class="log-item">Loading activity...</div>
             </div>
         </div>
 
-        <div class="card" style="display: flex; justify-content: space-around;">
-            <div>
-                <div style="font-size:12px">YOUR RANK</div>
-                <div style="font-size:20px; font-weight:bold" id="my-rank">-</div>
-            </div>
-            <div>
-                <div style="font-size:12px">SOLVED</div>
-                <div style="font-size:20px; font-weight:bold" id="my-score">0</div>
+        <div class="card" style="padding: 10px;">
+            <div class="stat-row">
+                <div class="stat-box">
+                    <span class="stat-label">YOUR RANK</span>
+                    <span class="stat-val" id="my-rank">-</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-label">ADS WATCHED</span>
+                    <span class="stat-val" id="my-score">0</span>
+                </div>
             </div>
         </div>
 
-        <button class="btn" onclick="checkAdsAndPlay()" style="width: 80%;">▶ PLAY GAME</button>
-        <button class="btn" onclick="showScreen('screen-leaderboard')" style="width: 80%; background: #d4af37; color: black;">🏅 LEADERBOARD</button>
+        <button class="btn" onclick="checkAdsAndPlay()" style="width: 80%;">▶ Play Puzzle</button>
+        <button class="btn" onclick="showScreen('screen-leaderboard')" style="width: 80%; background: #d4af37; color: black; border-color: #b8962e;">🏅 Leaderboard</button>
     </div>
 
-    <div id="screen-leaderboard" class="screen" style="justify-content: center;">
+    <div id="screen-leaderboard" class="screen">
         <h1>Top Players</h1>
-        <div class="card" id="lb-list">
+        <div class="card" id="lb-list" style="height: 60vh; overflow-y: auto;">
             <div>Loading...</div>
         </div>
-        <button class="btn" onclick="showScreen('screen-home')">⬅ Back to Home</button>
+        <button class="btn" onclick="showScreen('screen-home')">⬅ Back</button>
     </div>
 
     <div id="screen-game" class="screen">
-        <div style="width: 100%; display: flex; justify-content: space-between; padding: 0 15px; box-sizing: border-box; position: absolute; top: 10px;">
+        <div style="width: 100%; display: flex; justify-content: space-between; padding: 0 10px; position: absolute; top: 10px; z-index: 100;">
             <button class="btn btn-small" onclick="showScreen('screen-home')">🏠 Home</button>
             <button class="btn btn-small" style="background: rgb(205, 70, 70);" onclick="showScreen('screen-ads')">Skip ></button>
         </div>
-        
+
         <canvas id="gameCanvas"></canvas>
-        
-        <div style="position: absolute; bottom: 20px; font-weight: bold; color: rgb(80, 50, 30);">
-            MOVES: <span id="move-count">0</span>
-        </div>
     </div>
 
     <div id="screen-ads" class="screen" style="justify-content: center;">
@@ -82,20 +85,17 @@
             <p>Watch Ad to get a new puzzle + Add to Pool.</p>
             <button class="btn" onclick="watchAd()">📺 Watch Ad</button>
             <br><br>
-            <button class="btn btn-small" onclick="showScreen('screen-game')" style="background: #888;">Cancel</button>
+            <button class="btn btn-small" onclick="showScreen('screen-game')" style="background: #888; border-color: #666;">Cancel</button>
         </div>
     </div>
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
-        
-        // AUTH: Get Telegram Data
         const user = tg.initDataUnsafe?.user || {};
         const userId = user.id || 12345;
         const firstName = user.first_name || "Guest";
 
-        // --- GAME VARIABLES ---
         const GRID_SIZE = 6;
         const GAP = 3; 
         const C_BG = "rgb(250, 242, 230)";
@@ -104,22 +104,25 @@
         const C_RED = "rgb(205, 70, 70)";
         const C_H = "rgb(235, 210, 150)";
         const C_V = "rgb(210, 180, 130)";
-        
+        const C_TEXT = "rgb(80, 50, 30)";
+
         let canvas = document.getElementById("gameCanvas");
         let ctx = canvas.getContext("2d");
+        
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
         let maxW = window.innerWidth * 0.90; 
+        let maxH = window.innerHeight * 0.75; 
         let tileW = maxW / GRID_SIZE;
-        let TILE_SIZE = Math.floor(tileW);
+        let tileH = maxH / GRID_SIZE;
+        let TILE_SIZE = Math.floor(Math.min(tileW, tileH));
         let GRID_OFFSET_X = (canvas.width - (GRID_SIZE * TILE_SIZE)) / 2;
-        let GRID_OFFSET_Y = (canvas.height - (GRID_SIZE * TILE_SIZE)) / 2;
+        let GRID_OFFSET_Y = (canvas.height - (GRID_SIZE * TILE_SIZE)) / 2 + 30;
 
-        let gameState = { blocks: [], moves: 0, won: false };
+        let gameState = { blocks: [], moves: [], moveCount: 0, won: false };
         let selectedBlock = null;
         let dragOffset = { x:0, y:0 };
 
-        // --- NAVIGATION ---
         function showScreen(id) {
             document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
             document.getElementById(id).classList.add('active');
@@ -127,7 +130,7 @@
             if(id === 'screen-game') requestAnimationFrame(gameLoop);
         }
 
-        // --- API CALLS ---
+        // --- NEW DATA LOADING LOGIC ---
         async function loadUserData() { 
             try { 
                 let res = await fetch(`/api/user/${userId}`); 
@@ -140,7 +143,7 @@
                 document.getElementById('my-rank').innerText = "#" + d.rank;
                 document.getElementById('my-score').innerText = d.ads_watched;
                 
-                // 3. Update Activity Log
+                // 3. Update Logs
                 let logHTML = "";
                 d.recent_logs.forEach(log => {
                     logHTML += `<div class="log-item">🔔 ${log}</div>`;
@@ -156,15 +159,15 @@
                 });
                 document.getElementById('lb-list').innerHTML = lbHTML;
 
-            } catch(e) { console.error(e); } 
+            } catch(e) {} 
         }
 
         async function startGame() {
             showScreen('screen-game');
             gameState.blocks = []; 
-            // "Loading" text
-            ctx.clearRect(0,0,canvas.width,canvas.height);
-            ctx.fillStyle = "rgb(80, 50, 30)"; ctx.font = "20px Verdana"; ctx.fillText("Building Level...", canvas.width/2 - 70, canvas.height/2);
+            // Draw loading text
+            ctx.fillStyle = C_BG; ctx.fillRect(0,0,canvas.width, canvas.height);
+            ctx.fillStyle = C_TEXT; ctx.font = "bold 24px Verdana"; ctx.fillText("Building Level...", canvas.width/2 - 80, canvas.height/2);
             
             let res = await fetch('/api/generate_level');
             let levelData = await res.json();
@@ -172,30 +175,11 @@
             gameState.blocks = levelData.map((b, i) => ({
                 id: i, col: b.col, row: b.row, initialCol: b.col, initialRow: b.row, length: b.length, orientation: b.orientation, is_target: b.is_target,
                 rect: calculateRect(b.col, b.row, b.length, b.orientation),
-                startCol: b.col, startRow: b.row
+                startCol: b.col, startRow: b.row // Added for smart snap
             }));
-            gameState.moves = 0; 
-            gameState.won = false;
-            document.getElementById('move-count').innerText = 0;
-            requestAnimationFrame(gameLoop);
+            gameState.moves = []; gameState.moveCount = 0; gameState.won = false;
         }
 
-        function watchAd() { 
-            let btn = document.querySelector('#screen-ads button');
-            btn.innerText = "⏳ Verifying...";
-            setTimeout(async()=>{ 
-                await fetch('/api/ads/confirm', {
-                    method:'POST', 
-                    body:JSON.stringify({user_id: userId, first_name: firstName})
-                }); 
-                btn.innerText = "📺 Watch Ad";
-                startGame(); 
-            }, 1000); 
-        }
-
-        function checkAdsAndPlay() { startGame(); }
-
-        // --- GAME LOGIC ---
         function calculateRect(col, row, length, orientation) {
             let w = orientation === 'H' ? length * TILE_SIZE - (GAP * 2) : TILE_SIZE - (GAP * 2);
             let h = orientation === 'V' ? length * TILE_SIZE - (GAP * 2) : TILE_SIZE - (GAP * 2);
@@ -207,37 +191,46 @@
         function drawBlock(b) {
             let color = b.is_target ? C_RED : (b.orientation === 'H' ? C_H : C_V);
             let { x, y, w, h } = b.rect;
+            ctx.fillStyle = "rgba(0, 0, 0, 0.16)"; ctx.beginPath(); ctx.roundRect(x+4, y+4, w, h, 6); ctx.fill();
             ctx.fillStyle = color; ctx.beginPath(); ctx.roundRect(x, y, w, h, 6); ctx.fill();
-            ctx.strokeStyle = "rgba(0,0,0,0.3)"; ctx.lineWidth = 2; ctx.stroke();
+            ctx.lineWidth = 2; ctx.strokeStyle = "rgb(255, 255, 255)"; ctx.beginPath();
+            ctx.moveTo(x+3, y+2); ctx.lineTo(x+w-3, y+2); ctx.moveTo(x+2, y+3); ctx.lineTo(x+2, y+h-3); ctx.stroke();
+            ctx.strokeStyle = "rgb(0, 0, 0)"; ctx.beginPath();
+            ctx.moveTo(x+3, y+h-2); ctx.lineTo(x+w-3, y+h-2); ctx.moveTo(x+w-2, y+3); ctx.lineTo(x+w-2, y+h-3); ctx.stroke();
         }
 
         function gameLoop() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = C_BG; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            let frameX = GRID_OFFSET_X - 15; let frameY = GRID_OFFSET_Y - 15; let frameSize = GRID_SIZE * TILE_SIZE + 30;
+            ctx.fillStyle = C_FRAME; ctx.beginPath(); ctx.roundRect(frameX, frameY, frameSize, frameSize, 12); ctx.fill();
+            ctx.fillStyle = C_WELL; ctx.beginPath(); ctx.roundRect(frameX+10, frameY+10, frameSize-20, frameSize-20, 4); ctx.fill();
+            ctx.fillStyle = "black"; let exitY = GRID_OFFSET_Y + (2 * TILE_SIZE) + 5; ctx.fillRect(frameX + frameSize - 20, exitY, 25, TILE_SIZE - 10);
             
-            // Frame
-            let frameSize = GRID_SIZE * TILE_SIZE + 20;
-            ctx.fillStyle = C_FRAME; ctx.fillRect(GRID_OFFSET_X - 10, GRID_OFFSET_Y - 10, frameSize, frameSize);
-            ctx.fillStyle = C_WELL; ctx.fillRect(GRID_OFFSET_X, GRID_OFFSET_Y, GRID_SIZE * TILE_SIZE, GRID_SIZE * TILE_SIZE);
-            
-            // Exit
-            ctx.fillStyle = "black"; ctx.fillRect(GRID_OFFSET_X + (GRID_SIZE * TILE_SIZE), GRID_OFFSET_Y + (2 * TILE_SIZE) + 5, 20, TILE_SIZE - 10);
-
-            if(gameState.blocks) gameState.blocks.forEach(drawBlock);
-            
-            if(gameState.won) {
-                ctx.fillStyle = "rgba(0,0,0,0.7)";
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = "#00ff00"; ctx.font = "bold 40px Arial"; ctx.fillText("SOLVED!", canvas.width/2 - 80, canvas.height/2);
+            if(gameState.blocks.length > 0) {
+                 gameState.blocks.forEach(drawBlock);
             }
 
+            // TEXT UI
+            ctx.fillStyle = C_TEXT; ctx.font = "bold 24px Verdana"; 
+            let text = `Moves: ${gameState.moveCount}`; 
+            ctx.fillText(text, (canvas.width - ctx.measureText(text).width)/2, 80);
+            
+            // Note: "Next" button logic removed from canvas drawing since we have HTML buttons now
+            // keeping visual text just in case user likes it, but functionality is via HTML overlay now.
+
+            if(gameState.won) { 
+                ctx.fillStyle = "rgba(0,0,0,0.7)"; ctx.fillRect(0,0,canvas.width, canvas.height);
+                ctx.fillStyle = "rgb(0, 255, 0)"; ctx.font = "bold 40px Verdana"; 
+                ctx.fillText("SOLVED!", (canvas.width/2) - 80, canvas.height/2); 
+            }
             if(document.getElementById('screen-game').classList.contains('active')) { requestAnimationFrame(gameLoop); }
         }
 
-        // --- INPUTS ---
         function handleStart(x, y) {
+            // HTML buttons handle navigation now (Home/Skip)
+            if(y < 100) return; // Ignore top area clicks
+
             if(gameState.won) return;
-            // Check top buttons click
-            if(y < 80) return; // Let HTML buttons handle top clicks
 
             for(let b of gameState.blocks) {
                 if(x >= b.rect.x && x <= b.rect.x + b.rect.w && y >= b.rect.y && y <= b.rect.y + b.rect.h) {
@@ -246,6 +239,7 @@
                 }
             }
         }
+
         function handleMove(x, y) {
             if(!selectedBlock) return;
             let sb = selectedBlock; let targetX = x + dragOffset.x; let targetY = y + dragOffset.y;
@@ -257,22 +251,48 @@
                 for(let i=0; i<dist; i++) { let testRect = { ...sb.rect, y: sb.rect.y + direction }; if (!checkCollisionVisual(testRect, sb)) sb.rect.y += direction; else break; }
             }
         }
+
         function handleEnd() {
             if(!selectedBlock) return;
             let sb = selectedBlock;
-            let idealCol = Math.round((sb.rect.x - GRID_OFFSET_X) / TILE_SIZE); let idealRow = Math.round((sb.rect.y - GRID_OFFSET_Y) / TILE_SIZE);
-            if(sb.orientation === 'H') idealRow = sb.row; else idealCol = sb.col;
-            if(!checkCollisionGrid(idealCol, idealRow, sb, gameState.blocks)) { sb.col = idealCol; sb.row = idealRow; } 
-            else { sb.col = sb.startCol; sb.row = sb.startRow; }
             
+            let idealCol = Math.round((sb.rect.x - GRID_OFFSET_X) / TILE_SIZE);
+            let idealRow = Math.round((sb.rect.y - GRID_OFFSET_Y) / TILE_SIZE);
+            
+            if(sb.orientation === 'H') idealRow = sb.row; 
+            else idealCol = sb.col;
+
+            if(checkCollisionGrid(idealCol, idealRow, sb, gameState.blocks)) {
+                // SMART FIX LOGIC
+                let dCol = idealCol - sb.startCol;
+                let dRow = idealRow - sb.startRow;
+                
+                if (Math.abs(dCol) > 1) {
+                     let backupCol = sb.startCol + (dCol > 0 ? dCol - 1 : dCol + 1);
+                     if(!checkCollisionGrid(backupCol, idealRow, sb, gameState.blocks)) idealCol = backupCol;
+                     else idealCol = sb.startCol; 
+                } 
+                else if (Math.abs(dRow) > 1) {
+                     let backupRow = sb.startRow + (dRow > 0 ? dRow - 1 : dRow + 1);
+                     if(!checkCollisionGrid(idealCol, backupRow, sb, gameState.blocks)) idealRow = backupRow;
+                     else idealRow = sb.startRow; 
+                } 
+                else {
+                    idealCol = sb.startCol; idealRow = sb.startRow;
+                }
+            }
+
+            sb.col = idealCol; sb.row = idealRow;
             sb.rect = calculateRect(sb.col, sb.row, sb.length, sb.orientation);
+            
             if(sb.col !== sb.startCol || sb.row !== sb.startRow) {
-                gameState.moves++; document.getElementById('move-count').innerText = gameState.moves;
+                gameState.moveCount++; 
+                gameState.moves.push({ id: sb.id, col: sb.col, row: sb.row });
                 if(sb.is_target && sb.col === 4) { gameState.won = true; submitGame(); }
             }
             selectedBlock = null;
         }
-        
+
         function checkCollisionVisual(rect, activeB) {
             if (rect.x < GRID_OFFSET_X) return true; if (rect.x + rect.w > GRID_OFFSET_X + (GRID_SIZE * TILE_SIZE)) return true;
             if (rect.y < GRID_OFFSET_Y) return true; if (rect.y + rect.h > GRID_OFFSET_Y + (GRID_SIZE * TILE_SIZE)) return true;
@@ -284,6 +304,7 @@
             }
             return false;
         }
+
         function checkCollisionGrid(c, r, b, allBlocks) {
              if (c < 0 || r < 0) return true; if (b.orientation === 'H' && c + b.length > GRID_SIZE) return true; if (b.orientation === 'V' && r + b.length > GRID_SIZE) return true;
              let cells = []; for(let i=0; i<b.length; i++) cells.push(b.orientation === 'H' ? `${c+i},${r}` : `${c},${r+i}`);
@@ -293,7 +314,6 @@
              }
              return false;
         }
-        async function submitGame() { await fetch('/api/submit_game', { method: 'POST', body: JSON.stringify({ user_id: userId }) }); }
 
         canvas.addEventListener('mousedown', e => handleStart(e.clientX, e.clientY));
         canvas.addEventListener('mousemove', e => handleMove(e.clientX, e.clientY));
@@ -302,6 +322,27 @@
         canvas.addEventListener('touchmove', e => { e.preventDefault(); handleMove(e.touches[0].clientX, e.touches[0].clientY); }, {passive: false});
         canvas.addEventListener('touchend', handleEnd);
         
+        async function checkAdsAndPlay() { try{ let res=await fetch(`/api/user/${userId}`); if((await res.json()).ads_watched>=1) startGame(); else showScreen('screen-ads'); }catch(e){showScreen('screen-ads');} }
+        
+        // Updated Watch Ad to send Name
+        function watchAd() { 
+            let btn = document.querySelector('#screen-ads button');
+            btn.innerText = "⏳ Verifying...";
+            setTimeout(async()=>{ 
+                await fetch('/api/ads/confirm', {
+                    method:'POST', 
+                    body:JSON.stringify({user_id:userId, first_name: firstName})
+                }); 
+                btn.innerText = "📺 Watch Ad";
+                startGame(); 
+            }, 1000); 
+        }
+        
+        async function submitGame() { 
+            await fetch('/api/submit_game', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ user_id: userId }) }); 
+        }
+
+        // Init
         loadUserData();
     </script>
 </body>
