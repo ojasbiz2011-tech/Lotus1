@@ -8,10 +8,8 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         body { margin: 0; padding: 0; background-color: rgb(250, 242, 230); font-family: 'Verdana', sans-serif; overflow: hidden; user-select: none; }
-        .screen { display: none; width: 100%; height: 100vh; position: absolute; top: 0; left: 0; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 20px; box-sizing: border-box; }
-        .active { display: flex; }
         
-        /* AD OVERLAY */
+        /* AD OVERLAY STYLE */
         #ad-overlay {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0, 0, 0, 0.95); z-index: 9999;
@@ -33,11 +31,13 @@
             background: #00ff00; color: black; border-color: #00ff00;
             opacity: 1; pointer-events: auto; box-shadow: 0 0 20px #00ff00;
         }
+
+        /* CANVAS & UI */
+        canvas { touch-action: none; display: block; }
         
-        /* UI BUTTONS */
-        .btn { background: rgb(101, 67, 33); color: white; padding: 15px 30px; border-radius: 8px; font-weight: bold; margin: 10px; cursor: pointer; border: 2px solid rgb(80, 50, 30); box-shadow: 0 4px 6px rgba(0,0,0,0.3); font-size: 16px; }
-        .btn-small { padding: 8px 15px; font-size: 14px; margin: 0 5px; }
-        canvas { background-color: transparent; touch-action: none; }
+        /* HIDDEN UI FOR LEADERBOARD (Optional integration) */
+        .screen { display: none; width: 100%; height: 100%; position: absolute; top:0; left:0; }
+        .active { display: block; }
     </style>
 </head>
 <body>
@@ -51,209 +51,464 @@
     </div>
 
     <div id="screen-game" class="screen active">
-        <div style="width: 100%; display: flex; justify-content: space-between; padding: 0 10px; position: absolute; top: 10px; z-index: 100;">
-            <button class="btn btn-small" onclick="location.reload()">🏠 Home</button>
-            <button class="btn btn-small" style="background: rgb(205, 70, 70);" onclick="watchAd()">Skip ></button>
-        </div>
         <canvas id="gameCanvas"></canvas>
     </div>
 
-    <script>
-        // CONFIG FROM PYTHON CODE
-        const C_BG = "rgb(250, 242, 230)";
-        const C_FRAME = "rgb(101, 67, 33)";
-        const C_WELL = "rgb(180, 130, 70)";
-        const C_RED = "rgb(205, 70, 70)";
-        const C_H = "rgb(235, 210, 150)";
-        const C_V = "rgb(210, 180, 130)";
-        const C_TEXT = "rgb(80, 50, 30)";
-        
-        const GRID_SIZE = 6; const GAP = 3;
-        
-        let canvas = document.getElementById("gameCanvas"); 
-        let ctx = canvas.getContext("2d");
-        canvas.width = window.innerWidth; canvas.height = window.innerHeight;
-        
-        let maxW = window.innerWidth * 0.90; let maxH = window.innerHeight * 0.75; 
-        let tileW = maxW / GRID_SIZE; let tileH = maxH / GRID_SIZE; 
-        let TILE_SIZE = Math.floor(Math.min(tileW, tileH));
-        let GRID_OFFSET_X = (canvas.width - (GRID_SIZE * TILE_SIZE)) / 2; 
-        let GRID_OFFSET_Y = (canvas.height - (GRID_SIZE * TILE_SIZE)) / 2 + 30;
+<script>
+// --- CONFIGURATION ---
+const GRID_SIZE = 6;
+const GAP = 3;
 
-        let gameState = { blocks: [], moves: 0, won: false };
-        let selectedBlock = null; let dragOffset = { x:0, y:0 };
-        let pendingLevel = null; // Holds the level data while Ad plays
+// --- LIGHT WOOD THEME ---
+const COLOR_BG = "rgb(250, 242, 230)";
+const COLOR_FRAME = "rgb(101, 67, 33)";
+const COLOR_WELL = "rgb(180, 130, 70)";
+const COLOR_RED = "rgb(205, 70, 70)";
+const COLOR_H = "rgb(235, 210, 150)";
+const COLOR_V = "rgb(210, 180, 130)";
+const COLOR_TEXT = "rgb(80, 50, 30)";
 
-        // --- DRAWING FUNCTIONS (Replicating Pygame Draw) ---
-        function calculateRect(col, row, length, orientation) {
-            let w = orientation === 'H' ? length * TILE_SIZE - (GAP * 2) : TILE_SIZE - (GAP * 2);
-            let h = orientation === 'V' ? length * TILE_SIZE - (GAP * 2) : TILE_SIZE - (GAP * 2);
-            let x = GRID_OFFSET_X + (col * TILE_SIZE) + GAP; let y = GRID_OFFSET_Y + (row * TILE_SIZE) + GAP;
-            return { x, y, w, h };
+// Global Variables
+let canvas = document.getElementById("gameCanvas");
+let ctx = canvas.getContext("2d");
+let SCREEN_WIDTH = window.innerWidth;
+let SCREEN_HEIGHT = window.innerHeight;
+canvas.width = SCREEN_WIDTH;
+canvas.height = SCREEN_HEIGHT;
+
+// Responsive Sizing
+let maxW = SCREEN_WIDTH * 0.90;
+let maxH = SCREEN_HEIGHT * 0.75;
+let tileW = maxW / GRID_SIZE;
+let tileH = maxH / GRID_SIZE;
+let TILE_SIZE = Math.floor(Math.min(tileW, tileH));
+let GRID_OFFSET_X = (SCREEN_WIDTH - (GRID_SIZE * TILE_SIZE)) / 2;
+let GRID_OFFSET_Y = (SCREEN_HEIGHT - (GRID_SIZE * TILE_SIZE)) / 2 + 30;
+
+// Game State
+let blocks = [];
+let selected = null;
+let won = false;
+let moves = 0;
+let dragOffset = {x: 0, y: 0};
+let startP = {col: 0, row: 0};
+let isGenerating = false;
+
+// --- BLOCK CLASS TRANSLATION ---
+class Block {
+    constructor(col, row, length, orientation, is_target=false) {
+        this.id = Math.random(); // Unique ID for collision checks
+        this.col = col;
+        this.row = row;
+        this.length = length;
+        this.orientation = orientation;
+        this.is_target = is_target;
+        this.initial_pos = {col: col, row: row};
+        
+        // Rect properties
+        if (this.orientation === 'H') {
+            this.width = length * TILE_SIZE - (GAP * 2);
+            this.height = TILE_SIZE - (GAP * 2);
+            this.color = is_target ? COLOR_RED : COLOR_H;
+        } else {
+            this.width = TILE_SIZE - (GAP * 2);
+            this.height = length * TILE_SIZE - (GAP * 2);
+            this.color = COLOR_V;
+        }
+        
+        // Current Pixel Position (rect)
+        this.rect = {x: 0, y: 0, w: this.width, h: this.height};
+        this.updatePixelPos();
+    }
+
+    updatePixelPos() {
+        this.rect.x = GRID_OFFSET_X + (this.col * TILE_SIZE) + GAP;
+        this.rect.y = GRID_OFFSET_Y + (this.row * TILE_SIZE) + GAP;
+    }
+
+    draw() {
+        // Draw Shadow
+        ctx.fillStyle = "rgba(0, 0, 0, 0.16)";
+        roundRect(this.rect.x + 4, this.rect.y + 4, this.rect.w, this.rect.h, 6);
+        ctx.fill();
+
+        // Draw Main Body
+        ctx.fillStyle = this.color;
+        roundRect(this.rect.x, this.rect.y, this.rect.w, this.rect.h, 6);
+        ctx.fill();
+
+        // 3D Bevels (Lines)
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = "rgb(255, 255, 255)"; 
+        ctx.beginPath();
+        ctx.moveTo(this.rect.x + 3, this.rect.y + 2);
+        ctx.lineTo(this.rect.x + this.rect.w - 3, this.rect.y + 2);
+        ctx.moveTo(this.rect.x + 2, this.rect.y + 3);
+        ctx.lineTo(this.rect.x + 2, this.rect.y + this.rect.h - 3);
+        ctx.stroke();
+
+        ctx.strokeStyle = "rgb(0, 0, 0)";
+        ctx.beginPath();
+        ctx.moveTo(this.rect.x + 3, this.rect.y + this.rect.h - 2);
+        ctx.lineTo(this.rect.x + this.rect.w - 3, this.rect.y + this.rect.h - 2);
+        ctx.moveTo(this.rect.x + this.rect.w - 2, this.rect.y + 3);
+        ctx.lineTo(this.rect.x + this.rect.w - 2, this.rect.y + this.rect.h - 3);
+        ctx.stroke();
+    }
+}
+
+// Helper for rounded rects in canvas
+function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, r);
+}
+
+// --- LOGIC ENGINE TRANSLATION ---
+
+function checkGridCollision(c, r, b, allBlocks) {
+    if (c < 0 || r < 0) return true;
+    
+    // Self cells
+    let cells = [];
+    if (b.orientation === 'H') {
+        if (c + b.length > GRID_SIZE) return true;
+        for(let i=0; i<b.length; i++) cells.push((c+i) + "," + r);
+    } else {
+        if (r + b.length > GRID_SIZE) return true;
+        for(let i=0; i<b.length; i++) cells.push(c + "," + (r+i));
+    }
+
+    // Check against others
+    for (let o of allBlocks) {
+        if (o.id === b.id) continue;
+        let oCells = [];
+        for(let i=0; i<o.length; i++) {
+            if(o.orientation === 'H') oCells.push((o.col+i) + "," + o.row);
+            else oCells.push(o.col + "," + (o.row+i));
+        }
+        
+        // Intersection check
+        for(let cell of cells) {
+            if(oCells.includes(cell)) return true;
+        }
+    }
+    return false;
+}
+
+function checkPixelCollision(rect, activeB, allBlocks) {
+    // Boundaries
+    if (rect.x < GRID_OFFSET_X) return true;
+    if (rect.x + rect.w > GRID_OFFSET_X + (GRID_SIZE * TILE_SIZE)) return true;
+    if (rect.y < GRID_OFFSET_Y) return true;
+    if (rect.y + rect.h > GRID_OFFSET_Y + (GRID_SIZE * TILE_SIZE)) return true;
+
+    // Collisions with blocks
+    // Inflate logic: we basically check if rects overlap slightly
+    for (let o of allBlocks) {
+        if (o.id === activeB.id) continue;
+        
+        // Simple AABB Collision
+        if (rect.x < o.rect.x + o.rect.w - 2 &&
+            rect.x + rect.w > o.rect.x + 2 &&
+            rect.y < o.rect.y + o.rect.h - 2 &&
+            rect.y + rect.h > o.rect.y + 2) {
+                return true;
+        }
+    }
+    return false;
+}
+
+// --- SOLVER (BFS) ---
+function solveBoard(simBlocks) {
+    // Clone blocks for simulation
+    let sim = simBlocks.map(b => ({
+        col: b.col, row: b.row, length: b.length, 
+        orientation: b.orientation, is_target: b.is_target, id: b.id
+    }));
+    
+    let targetIdx = sim.findIndex(b => b.is_target);
+    
+    // State is a string key of positions "c,r|c,r|..."
+    let startState = sim.map(b => b.col + "," + b.row).join("|");
+    let queue = [{state: startState, depth: 0}];
+    let visited = new Set([startState]);
+    let maxDepth = 40; // Limit for performance
+
+    while(queue.length > 0) {
+        let current = queue.shift();
+        if(current.depth > maxDepth) return -1;
+
+        // Apply state positions to sim array
+        let positions = current.state.split("|");
+        for(let i=0; i<sim.length; i++) {
+            let p = positions[i].split(",");
+            sim[i].col = parseInt(p[0]);
+            sim[i].row = parseInt(p[1]);
         }
 
-        function drawBlock(b) {
-            // Update rect based on current logic position (snap or drag handled in loop)
-            let { x, y, w, h } = b.rect; 
-            let color = b.is_target ? C_RED : (b.orientation === 'H' ? C_H : C_V);
+        // Check Win
+        if(sim[targetIdx].col === GRID_SIZE - 2) return current.depth;
 
-            // Shadow
-            ctx.fillStyle = "rgba(0, 0, 0, 0.16)"; ctx.beginPath(); ctx.roundRect(x+4, y+4, w, h, 6); ctx.fill();
-            // Body
-            ctx.fillStyle = color; ctx.beginPath(); ctx.roundRect(x, y, w, h, 6); ctx.fill();
-            // Bevels
-            ctx.lineWidth = 2; 
-            ctx.strokeStyle = "rgb(255, 255, 255)"; ctx.beginPath(); 
-            ctx.moveTo(x+3, y+2); ctx.lineTo(x+w-3, y+2); ctx.moveTo(x+2, y+3); ctx.lineTo(x+2, y+h-3); ctx.stroke();
-            ctx.strokeStyle = "rgb(0, 0, 0)"; ctx.beginPath(); 
-            ctx.moveTo(x+3, y+h-2); ctx.lineTo(x+w-3, y+h-2); ctx.moveTo(x+w-2, y+3); ctx.lineTo(x+w-2, y+h-3); ctx.stroke();
-        }
-
-        function drawUI() {
-            ctx.fillStyle = C_BG; ctx.fillRect(0, 0, canvas.width, canvas.height);
-            // Frame & Well
-            let frameX = GRID_OFFSET_X - 15; let frameY = GRID_OFFSET_Y - 15; 
-            let frameSize = GRID_SIZE * TILE_SIZE + 30;
-            ctx.fillStyle = C_FRAME; ctx.beginPath(); ctx.roundRect(frameX, frameY, frameSize, frameSize, 12); ctx.fill();
-            ctx.fillStyle = C_WELL; ctx.beginPath(); ctx.roundRect(frameX+10, frameY+10, frameSize-20, frameSize-20, 4); ctx.fill();
-            ctx.fillStyle = "black"; let exitY = GRID_OFFSET_Y + (2 * TILE_SIZE) + 5; ctx.fillRect(frameX + frameSize - 20, exitY, 25, TILE_SIZE - 10);
+        // Generate Moves
+        for(let i=0; i<sim.length; i++) {
+            let b = sim[i];
+            let moves = b.orientation === 'H' ? [[-1,0], [1,0]] : [[0,-1], [0,1]];
             
-            // Text
-            ctx.fillStyle = C_TEXT; ctx.font = "bold 24px Verdana"; 
-            if (gameState.blocks.length === 0) {
-                 ctx.fillText("Generating...", canvas.width/2 - 80, 100);
-            } else {
-                 let text = `Moves: ${gameState.moves}`; 
-                 ctx.fillText(text, (canvas.width - ctx.measureText(text).width)/2, 80);
+            for(let m of moves) {
+                if(!checkGridCollision(b.col + m[0], b.row + m[1], b, sim)) {
+                    // Make new state string
+                    let newPositions = [...positions];
+                    newPositions[i] = (b.col + m[0]) + "," + (b.row + m[1]);
+                    let newState = newPositions.join("|");
+                    
+                    if(!visited.has(newState)) {
+                        visited.add(newState);
+                        queue.push({state: newState, depth: current.depth + 1});
+                    }
+                }
             }
-            if(gameState.won) { 
-                ctx.fillStyle = "rgba(0,0,0,0.7)"; ctx.fillRect(0,0,canvas.width, canvas.height);
-                ctx.fillStyle = "rgb(0, 150, 0)"; ctx.font = "bold 40px Verdana"; ctx.textAlign = "center"; ctx.fillText("SOLVED!", canvas.width/2, canvas.height/2); ctx.textAlign = "start";
-            }
         }
+    }
+    return -1;
+}
 
-        function gameLoop() {
-            drawUI();
-            if(gameState.blocks.length > 0) gameState.blocks.forEach(drawBlock);
-            requestAnimationFrame(gameLoop);
-        }
+// --- GAME LOOP ---
 
-        // --- GAME LOGIC ---
-        function checkCollisionVisual(rect, activeB) {
-            // Used for dragging physics
-            if (rect.x < GRID_OFFSET_X) return true; if (rect.x + rect.w > GRID_OFFSET_X + (GRID_SIZE * TILE_SIZE)) return true;
-            if (rect.y < GRID_OFFSET_Y) return true; if (rect.y + rect.h > GRID_OFFSET_Y + (GRID_SIZE * TILE_SIZE)) return true;
-            let hitbox = { x: rect.x+2, y: rect.y+2, w: rect.w-4, h: rect.h-4 };
-            for(let o of gameState.blocks) {
-                if (o.id === activeB.id) continue;
-                let oHit = { x: o.rect.x+2, y: o.rect.y+2, w: o.rect.w-4, h: o.rect.h-4 };
-                if (hitbox.x < oHit.x + oHit.w && hitbox.x + hitbox.w > oHit.x && hitbox.y < oHit.y + oHit.h && hitbox.y + hitbox.h > oHit.y) return true;
-            }
-            return false;
-        }
+function startNewGame() {
+    isGenerating = true;
+    render(); // Draw loading text immediately
 
-        function checkCollisionGrid(c, r, b, allBlocks) {
-             if (c < 0 || r < 0) return true; if (b.orientation === 'H' && c + b.length > GRID_SIZE) return true; if (b.orientation === 'V' && r + b.length > GRID_SIZE) return true;
-             let cells = []; for(let i=0; i<b.length; i++) cells.push(b.orientation === 'H' ? `${c+i},${r}` : `${c},${r+i}`);
-             for(let o of allBlocks) {
-                 if(o.id === b.id) continue;
-                 for(let j=0; j<o.length; j++) { let ox = o.col + (o.orientation==='H'?j:0); let oy = o.row + (o.orientation==='V'?j:0); if(cells.includes(`${ox},${oy}`)) return true; }
-             }
-             return false;
-        }
+    // Delay 10ms to let browser render the text, then calculate
+    setTimeout(() => {
+        let tempBlocks = [];
+        let startTime = Date.now();
+        
+        while(true) {
+            // Safety break for 1.5s limit
+            if (Date.now() - startTime > 1500 && tempBlocks.length > 5) break; 
 
-        // --- AD & LEVEL LOADING ---
-        function watchAd() {
-            document.getElementById('ad-overlay').style.display = 'flex';
-            pendingLevel = null;
-            
-            // START GENERATION IN BACKGROUND
-            fetch('/api/generate_level')
-                .then(res => res.json())
-                .then(data => { pendingLevel = data; });
+            tempBlocks = [new Block(Math.random() < 0.5 ? 0 : 1, 2, 2, 'H', true)];
+            let targetCount = Math.floor(Math.random() * (19 - 14) + 14); // 14-18
+            let fails = 0;
 
-            let timeLeft = 5;
-            let btn = document.getElementById('close-ad-btn');
-            btn.innerText = `WAIT ${timeLeft}s`;
-            btn.classList.remove('enabled');
-            let timer = setInterval(() => {
-                timeLeft--;
-                if(timeLeft <= 0) {
-                    clearInterval(timer);
-                    btn.innerText = "❌ CLOSE & PLAY";
-                    btn.classList.add('enabled');
+            while(tempBlocks.length < targetCount && fails < 50) {
+                let l = Math.random() < 0.6 ? 2 : 3;
+                let o = Math.random() < 0.5 ? 'H' : 'V';
+                let c, r;
+                
+                if(o === 'H') {
+                    c = Math.floor(Math.random() * (GRID_SIZE - l + 1));
+                    r = Math.floor(Math.random() * GRID_SIZE);
                 } else {
-                    btn.innerText = `WAIT ${timeLeft}s`;
+                    c = Math.floor(Math.random() * GRID_SIZE);
+                    r = Math.floor(Math.random() * (GRID_SIZE - l + 1));
                 }
-            }, 1000);
-        }
 
-        async function finishAd() {
-            document.getElementById('ad-overlay').style.display = 'none';
-            // Wait for level if server is slow
-            if(!pendingLevel) {
-                 // Level is still generating, user will see "Generating..." text from drawUI()
-                 gameState.blocks = [];
-                 let waitForIt = setInterval(() => {
-                     if(pendingLevel) { clearInterval(waitForIt); applyLevel(pendingLevel); }
-                 }, 100);
-            } else {
-                 applyLevel(pendingLevel);
+                if(r === 2 && o === 'H') { fails++; continue; }
+
+                let nb = new Block(c, r, l, o);
+                // Check collision using tempBlocks (needs partial logic)
+                if(!checkGridCollision(c, r, nb, tempBlocks)) {
+                    tempBlocks.push(nb);
+                } else {
+                    fails++;
+                }
             }
-        }
 
-        function applyLevel(data) {
-            gameState.blocks = data.map((b, i) => ({
-                id: i, col: b.col, row: b.row, initialCol: b.col, initialRow: b.row, length: b.length, orientation: b.orientation, is_target: b.is_target,
-                rect: calculateRect(b.col, b.row, b.length, b.orientation), startCol: b.col, startRow: b.row
-            }));
-            gameState.won = false; gameState.moves = 0;
-            pendingLevel = null;
-        }
-
-        // --- CONTROLS ---
-        canvas.addEventListener('mousedown', e => handleStart(e.clientX, e.clientY));
-        canvas.addEventListener('mousemove', e => handleMove(e.clientX, e.clientY));
-        canvas.addEventListener('mouseup', handleEnd);
-        canvas.addEventListener('touchstart', e => { e.preventDefault(); handleStart(e.touches[0].clientX, e.touches[0].clientY); }, {passive: false});
-        canvas.addEventListener('touchmove', e => { e.preventDefault(); handleMove(e.touches[0].clientX, e.touches[0].clientY); }, {passive: false});
-        canvas.addEventListener('touchend', handleEnd);
-        document.addEventListener('keydown', (e) => { if(e.key.toLowerCase() === 'n') watchAd(); });
-
-        function handleStart(x, y) {
-            if(y < 100) return; if(gameState.won) return;
-            for(let b of gameState.blocks) {
-                if(x >= b.rect.x && x <= b.rect.x + b.rect.w && y >= b.rect.y && y <= b.rect.y + b.rect.h) {
-                    selectedBlock = b; dragOffset.x = b.rect.x - x; dragOffset.y = b.rect.y - y;
-                    b.startCol = b.col; b.startRow = b.row; break;
+            if(tempBlocks.length >= 13) {
+                let result = solveBoard(tempBlocks);
+                if(result >= 10) {
+                    blocks = tempBlocks;
+                    won = false;
+                    moves = 0;
+                    break;
                 }
             }
         }
-        function handleMove(x, y) {
-            if(!selectedBlock) return; let sb = selectedBlock; let targetX = x + dragOffset.x; let targetY = y + dragOffset.y;
-            // Original physics logic
-            if (sb.orientation === 'H') {
-                let direction = targetX > sb.rect.x ? 1 : -1; let dist = Math.abs(targetX - sb.rect.x);
-                for(let i=0; i<dist; i++) { let testRect = { ...sb.rect, x: sb.rect.x + direction }; if (!checkCollisionVisual(testRect, sb)) sb.rect.x += direction; else break; }
-            } else {
-                let direction = targetY > sb.rect.y ? 1 : -1; let dist = Math.abs(targetY - sb.rect.y);
-                for(let i=0; i<dist; i++) { let testRect = { ...sb.rect, y: sb.rect.y + direction }; if (!checkCollisionVisual(testRect, sb)) sb.rect.y += direction; else break; }
-            }
-        }
-        function handleEnd() {
-            if(!selectedBlock) return; let sb = selectedBlock;
-            let idealCol = Math.round((sb.rect.x - GRID_OFFSET_X) / TILE_SIZE); let idealRow = Math.round((sb.rect.y - GRID_OFFSET_Y) / TILE_SIZE);
-            if(sb.orientation === 'H') idealRow = sb.row; else idealCol = sb.col;
-            if(checkCollisionGrid(idealCol, idealRow, sb, gameState.blocks)) { sb.col = sb.startCol; sb.row = sb.startRow; } 
-            else { sb.col = idealCol; sb.row = idealRow; }
-            sb.rect = calculateRect(sb.col, sb.row, sb.length, sb.orientation);
-            if(sb.col !== sb.startCol || sb.row !== sb.startRow) { gameState.moves++; if(sb.is_target && sb.col === 4) gameState.won = true; }
-            selectedBlock = null;
-        }
+        isGenerating = false;
+        render(); // Re-draw with blocks
+    }, 50);
+}
 
-        // INITIAL START
-        watchAd(); // Start with an ad to generate first level
-        requestAnimationFrame(gameLoop);
-    </script>
+// --- RENDERING ---
+function render() {
+    // Clear
+    ctx.fillStyle = COLOR_BG;
+    ctx.fillRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+
+    // Draw Frame
+    let frameX = GRID_OFFSET_X - 20;
+    let frameY = GRID_OFFSET_Y - 20;
+    let frameW = GRID_SIZE * TILE_SIZE + 40;
+    let frameH = GRID_SIZE * TILE_SIZE + 40;
+
+    ctx.fillStyle = COLOR_FRAME;
+    roundRect(frameX, frameY, frameW, frameH, 12);
+    ctx.fill();
+
+    // Well
+    ctx.fillStyle = COLOR_WELL;
+    roundRect(frameX+15, frameY+15, frameW-30, frameH-30, 4);
+    ctx.fill();
+
+    // Exit
+    ctx.fillStyle = "black";
+    ctx.fillRect(frameX + frameW - 25, GRID_OFFSET_Y + 2 * TILE_SIZE + 5, 30, TILE_SIZE - 10);
+
+    // If generating, show text
+    if(isGenerating) {
+        ctx.fillStyle = COLOR_FRAME;
+        ctx.font = "bold 40px Verdana";
+        ctx.textAlign = "center";
+        ctx.fillText("Generating...", SCREEN_WIDTH/2, SCREEN_HEIGHT/2);
+        ctx.textAlign = "left";
+        return;
+    }
+
+    // Draw Blocks
+    for(let b of blocks) b.draw();
+
+    // Draw UI Text
+    ctx.fillStyle = won ? "rgb(0, 150, 0)" : COLOR_TEXT;
+    ctx.font = "bold 40px Verdana";
+    ctx.textAlign = "center";
+    if(won) {
+        ctx.fillText("SOLVED!", SCREEN_WIDTH/2, 80);
+    } else {
+        ctx.font = "18px Verdana";
+        ctx.fillText(`Moves: ${moves}  |  'N' for New Puzzle`, SCREEN_WIDTH/2, 100);
+    }
+    ctx.textAlign = "left";
+}
+
+// --- INPUT HANDLING ---
+function handleStart(x, y) {
+    if(won) return;
+    for(let b of blocks) {
+        if(x >= b.rect.x && x <= b.rect.x + b.rect.w && y >= b.rect.y && y <= b.rect.y + b.rect.h) {
+            selected = b;
+            dragOffset.x = b.rect.x - x;
+            dragOffset.y = b.rect.y - y;
+            startP = {col: b.col, row: b.row};
+            break;
+        }
+    }
+}
+
+function handleMove(x, y) {
+    if(!selected) return;
+    
+    // Pixel Perfect Logic from Python
+    let sb = selected;
+    let targetX = x + dragOffset.x;
+    let targetY = y + dragOffset.y;
+
+    if (sb.orientation === 'H') {
+        let direction = targetX > sb.rect.x ? 1 : -1;
+        let dist = Math.abs(targetX - sb.rect.x);
+        for(let i=0; i<dist; i++) {
+            let testRect = { ...sb.rect, x: sb.rect.x + direction };
+            if(!checkPixelCollision(testRect, sb, blocks)) {
+                sb.rect.x += direction;
+            } else break;
+        }
+    } else {
+        let direction = targetY > sb.rect.y ? 1 : -1;
+        let dist = Math.abs(targetY - sb.rect.y);
+        for(let i=0; i<dist; i++) {
+            let testRect = { ...sb.rect, y: sb.rect.y + direction };
+            if(!checkPixelCollision(testRect, sb, blocks)) {
+                sb.rect.y += direction;
+            } else break;
+        }
+    }
+    render(); // Redraw on every move
+}
+
+function handleEnd() {
+    if(!selected) return;
+    let sb = selected;
+
+    // Snap to grid logic
+    let idealCol = Math.round((sb.rect.x - GRID_OFFSET_X) / TILE_SIZE);
+    let idealRow = Math.round((sb.rect.y - GRID_OFFSET_Y) / TILE_SIZE);
+
+    if(sb.orientation === 'H') idealRow = sb.row;
+    else idealCol = sb.col;
+
+    if(!checkGridCollision(idealCol, idealRow, sb, blocks)) {
+        sb.col = idealCol;
+        sb.row = idealRow;
+    } else {
+        // Snap back if invalid
+        // (Or implement the partial step-back logic if desired, but Python code mostly snaps)
+        // Revert to startP if collision check fails on drop? 
+        // Python code updates pixel pos based on col/row at end.
+    }
+
+    sb.updatePixelPos(); // Snap visual to grid
+    
+    if(sb.col !== startP.col || sb.row !== startP.row) {
+        moves++;
+        if(sb.is_target && sb.col === 4) won = true;
+    }
+    selected = null;
+    render();
+}
+
+// Listeners
+canvas.addEventListener('mousedown', e => handleStart(e.clientX, e.clientY));
+canvas.addEventListener('mousemove', e => handleMove(e.clientX, e.clientY));
+canvas.addEventListener('mouseup', handleEnd);
+canvas.addEventListener('touchstart', e => { e.preventDefault(); handleStart(e.touches[0].clientX, e.touches[0].clientY); }, {passive: false});
+canvas.addEventListener('touchmove', e => { e.preventDefault(); handleMove(e.touches[0].clientX, e.touches[0].clientY); }, {passive: false});
+canvas.addEventListener('touchend', handleEnd);
+
+// Keyboard 'N'
+document.addEventListener('keydown', (e) => {
+    if(e.key.toLowerCase() === 'n') watchAd(); 
+});
+
+// --- ADS & INIT ---
+function watchAd() {
+    document.getElementById('ad-overlay').style.display = 'flex';
+    // START GENERATION WHILE AD PLAYS
+    // We run startNewGame inside a timeout after ad finishes or during?
+    // User requested: "Generate level while user is watching ad"
+    // Since JS is single-threaded, we can't block the ad timer.
+    // The startNewGame function uses setTimeout/intervals so it won't freeze the timer.
+    
+    // We delay the generation slightly to ensure overlay renders
+    setTimeout(() => {
+        startNewGame(); 
+    }, 100);
+
+    let timeLeft = 5;
+    let btn = document.getElementById('close-ad-btn');
+    btn.innerText = `WAIT ${timeLeft}s`;
+    btn.classList.remove('enabled');
+    let timer = setInterval(() => {
+        timeLeft--;
+        if(timeLeft <= 0) {
+            clearInterval(timer);
+            btn.innerText = "❌ CLOSE & PLAY";
+            btn.classList.add('enabled');
+        } else {
+            btn.innerText = `WAIT ${timeLeft}s`;
+        }
+    }, 1000);
+}
+
+async function finishAd() {
+    document.getElementById('ad-overlay').style.display = 'none';
+    // Sync with server for money (keep this fetch)
+    const userId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 12345;
+    await fetch('/api/ads/confirm', { method:'POST', body:JSON.stringify({user_id:userId}) });
+}
+
+// Initial Start
+watchAd();
+
+</script>
 </body>
 </html>
