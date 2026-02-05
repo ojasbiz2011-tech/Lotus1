@@ -1,6 +1,5 @@
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 import uvicorn
 import game_engine
@@ -8,7 +7,7 @@ from typing import List, Dict
 
 app = FastAPI()
 
-# --- DATABASE (In-Memory for now) ---
+# --- DATABASE (In-Memory) ---
 # users = { user_id: { "wallet": 0.0, "ads_watched": 0, "name": "User" } }
 users = {}
 
@@ -16,8 +15,7 @@ users = {}
 GLOBAL_POOL = 50.00 
 RECENT_LOGS = [] # Stores: "User X added ₹0.10"
 
-# SERVE STATIC FILES
-app.mount("/static", StaticFiles(directory="static"), name="static")
+# SERVE TEMPLATES (HTML)
 templates = Jinja2Templates(directory="templates")
 
 @app.get("/", response_class=HTMLResponse)
