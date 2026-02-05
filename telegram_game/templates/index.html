@@ -7,7 +7,7 @@
     
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        /* --- ORIGINAL STYLES --- */
+        /* --- ORIGINAL STYLES PRESERVED --- */
         body { margin: 0; padding: 0; background-color: rgb(250, 242, 230); font-family: 'Verdana', sans-serif; overflow: hidden; user-select: none; }
         .screen { display: none; width: 100%; height: 100vh; position: absolute; top: 0; left: 0; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 20px; box-sizing: border-box; }
         .active { display: flex; }
@@ -173,7 +173,46 @@
             startGame();
         }
 
-        // --- DRAW BACKGROUND ONLY ---
+        // --- INSTANT LEVEL GENERATOR (CLIENT SIDE) ---
+        function generateLevelJS() {
+            let blocks = [];
+            // 1. Target: Always start at Col 0 (Far Left) to prevent instant win
+            blocks.push({id: 999, col: 0, row: 2, length: 2, orientation: 'H', is_target: true});
+            
+            // 2. Add Random Obstacles (High Density: 13-16 blocks)
+            let attempts = 0;
+            while(blocks.length < 15 && attempts < 200) {
+                attempts++;
+                let l = Math.random() < 0.6 ? 2 : 3;
+                let o = Math.random() < 0.5 ? 'H' : 'V';
+                let c, r;
+                
+                // Random position
+                if(o === 'H') { c = Math.floor(Math.random() * (GRID_SIZE - l + 1)); r = Math.floor(Math.random() * GRID_SIZE); }
+                else { c = Math.floor(Math.random() * GRID_SIZE); r = Math.floor(Math.random() * (GRID_SIZE - l + 1)); }
+                
+                // Rule: Don't put horizontal blocks on the exit row (too easy)
+                if(r === 2 && o === 'H') continue;
+
+                // Check collision
+                let overlap = false;
+                // Simple collision check for generation
+                let newCells = [];
+                for(let k=0; k<l; k++) newCells.push(o==='H' ? (c+k)+','+r : c+','+(r+k));
+                
+                for(let b of blocks) {
+                    let bCells = [];
+                    for(let k=0; k<b.length; k++) bCells.push(b.orientation==='H' ? (b.col+k)+','+b.row : b.col+','+(b.row+k));
+                    if(newCells.some(cell => bCells.includes(cell))) { overlap = true; break; }
+                }
+
+                if(!overlap) {
+                    blocks.push({id: blocks.length, col: c, row: r, length: l, orientation: o, is_target: false});
+                }
+            }
+            return blocks;
+        }
+
         function drawStaticUI() {
             ctx.fillStyle = C_BG; 
             ctx.fillRect(0,0,canvas.width, canvas.height);
@@ -184,7 +223,7 @@
             ctx.fillStyle = "black"; let exitY = GRID_OFFSET_Y + (2 * TILE_SIZE) + 5; ctx.fillRect(frameX + frameSize - 20, exitY, 25, TILE_SIZE - 10);
         }
 
-        async function startGame() {
+        function startGame() {
             showScreen('screen-game'); 
             gameState.won = false; 
             gameState.blocks = []; 
@@ -193,7 +232,7 @@
             window.requestAnimationFrame(() => {
                 drawStaticUI();
                 
-                // 2. Draw Text
+                // 2. Draw Text (Instant)
                 ctx.fillStyle = C_TEXT; 
                 ctx.font = "bold 24px Verdana"; 
                 ctx.textAlign = "center"; 
@@ -201,19 +240,18 @@
                 ctx.fillText("Generating Level....", GRID_OFFSET_X + frameSize/2, GRID_OFFSET_Y + frameSize/2); 
                 ctx.textAlign = "start";
                 
-                // 3. FETCH FROM SERVER (With frame delay to show text)
-                window.requestAnimationFrame(async () => {
-                     try {
-                        let res = await fetch('/api/generate_level');
-                        let levelData = await res.json();
-                        
-                        gameState.blocks = levelData.map((b, i) => ({
-                            id: i, col: b.col, row: b.row, initialCol: b.col, initialRow: b.row, length: b.length, orientation: b.orientation, is_target: b.is_target,
-                            rect: calculateRect(b.col, b.row, b.length, b.orientation), startCol: b.col, startRow: b.row
-                        }));
-                        gameState.moves = []; gameState.moveCount = 0; gameState.won = false;
-                     } catch(e) { console.error("Generation Error:", e); }
-                });
+                // 3. Wait 1 second (Fake loading so user sees text) -> Then Generate
+                setTimeout(() => {
+                    let rawBlocks = generateLevelJS();
+                    
+                    // Convert to Game Objects
+                    gameState.blocks = rawBlocks.map((b, i) => ({
+                        id: i, col: b.col, row: b.row, initialCol: b.col, initialRow: b.row, length: b.length, orientation: b.orientation, is_target: b.is_target,
+                        rect: calculateRect(b.col, b.row, b.length, b.orientation), startCol: b.col, startRow: b.row
+                    }));
+                    gameState.moves = []; gameState.moveCount = 0; gameState.won = false;
+                    // Game loop picks it up next frame
+                }, 1000);
             });
         }
 
@@ -234,7 +272,7 @@
             ctx.moveTo(x+3, y+h-2); ctx.lineTo(x+w-3, y+h-2); ctx.moveTo(x+w-2, y+3); ctx.lineTo(x+w-2, y+h-3); ctx.stroke();
         }
         function gameLoop() {
-            if(gameState.blocks.length === 0 && !gameState.won) return; // Wait for load
+            if(gameState.blocks.length === 0 && !gameState.won) return; 
             drawStaticUI();
             if(gameState.blocks.length > 0) { gameState.blocks.forEach(drawBlock); }
             ctx.fillStyle = C_TEXT; ctx.font = "bold 24px Verdana"; let text = `Moves: ${gameState.moveCount}`; ctx.fillText(text, (canvas.width - ctx.measureText(text).width)/2, 80);
