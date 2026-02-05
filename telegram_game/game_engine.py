@@ -17,7 +17,7 @@ class Block:
         self.length = length
         self.orientation = orientation
         self.is_target = is_target
-        # Visual/Rect data needed for collision logic
+        # Visual/Rect data
         self.gap = 3
         if self.orientation == 'H':
             self.width = length * TILE_SIZE - (self.gap * 2)
@@ -80,18 +80,13 @@ def generate_puzzle():
     best_data = None
     max_difficulty = -1
     
-    # 1.5 Second Timeout for fast generation
+    # 1.5 Second Limit
     while time.time() - start_time < 1.5:
-        
-        # FIX 1: INSTANT WIN PREVENTION
-        # Force Red Block to start at Col 0 or 1. 
-        # It must travel across the whole board to win.
+        # Prevent "Instant Win" - Target starts far left
         target_col = random.randint(0, 1)
         temp_blocks = [Block(target_col, 2, 2, 'H', True)]
         
-        # FIX 2: LESS DENSE, MORE SCRAMBLED
-        # Reduced from 16 to 9-13 blocks.
-        # This leaves empty space (scrambled feel) without being a traffic jam.
+        # Less Dense (9-13 blocks)
         target_count = random.randint(9, 13)
         fails = 0
         
@@ -99,7 +94,7 @@ def generate_puzzle():
             l = random.choice([2, 2, 3])
             o = random.choice(['H', 'V'])
             
-            # Scramble Logic: Random placement
+            # Scramble Logic
             if o == 'H':
                 c = random.randint(0, GRID_SIZE - l)
                 r = random.randint(0, GRID_SIZE - 1)
@@ -107,7 +102,8 @@ def generate_puzzle():
                 c = random.randint(0, GRID_SIZE - 1)
                 r = random.randint(0, GRID_SIZE - l)
             
-            if r == 2 and o == 'H': # Don't put horizontal blocks on the exit row (too easy)
+            # Anti-Easy Logic: Don't clutter the exit row too much
+            if r == 2 and o == 'H': 
                 fails += 1
                 continue
                 
@@ -128,17 +124,20 @@ def generate_puzzle():
                         "id": i, "col": b.col, "row": b.row, "length": b.length, "orientation": b.orientation, "is_target": b.is_target
                     })
                 
-                # We want the HARDEST one we can find in 1.5 seconds
+                # Keep track of the hardest one found so far
                 if result > max_difficulty:
                     max_difficulty = result
                     best_data = data
                 
-                # FIX 3: MINIMUM MOVES
-                # Reject any puzzle that takes less than 6 moves to solve.
+                # If it's hard enough, return instantly
                 if result >= 6: 
                     return data
 
-    if best_data:
+    # --- THE FIX IS HERE ---
+    # If time runs out, return the BEST one we found, even if it's easy.
+    # This prevents the infinite loop / hanging screen.
+    if best_data is not None:
         return best_data
     else:
-        return generate_puzzle() # Retry if we got super unlucky
+        # Only recurse if we literally found NOTHING (very rare)
+        return generate_puzzle()
