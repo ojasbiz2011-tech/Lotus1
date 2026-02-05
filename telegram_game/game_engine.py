@@ -6,7 +6,6 @@ from collections import deque
 
 pygame.init()
 
-# --- CONFIGURATION ---
 GRID_SIZE = 6
 TILE_SIZE = 85
 
@@ -17,7 +16,7 @@ class Block:
         self.length = length
         self.orientation = orientation
         self.is_target = is_target
-        # Visual/Rect data
+        # Visual data for collision checks
         self.gap = 3
         if self.orientation == 'H':
             self.width = length * TILE_SIZE - (self.gap * 2)
@@ -51,6 +50,8 @@ def solve_board(blocks):
     start_state = tuple((b.col, b.row) for b in sim)
     queue = deque([(start_state, 0)])
     visited = {start_state}
+    
+    # Lower depth for speed
     max_depth = 40 
     
     while queue:
@@ -80,13 +81,15 @@ def generate_puzzle():
     best_data = None
     max_difficulty = -1
     
-    # 1.5 Second Limit
-    while time.time() - start_time < 1.5:
-        # Prevent "Instant Win" - Target starts far left
+    # TIGHT TIMEOUT: 1.0 second max.
+    # If we exceed this, we return 'best_data' immediately.
+    while time.time() - start_time < 1.0:
+        
+        # 1. Target Block (Red) - Always Row 2, Col 0 or 1
         target_col = random.randint(0, 1)
         temp_blocks = [Block(target_col, 2, 2, 'H', True)]
         
-        # Less Dense (9-13 blocks)
+        # 2. Add Obstacles (9 to 13 blocks)
         target_count = random.randint(9, 13)
         fails = 0
         
@@ -94,7 +97,6 @@ def generate_puzzle():
             l = random.choice([2, 2, 3])
             o = random.choice(['H', 'V'])
             
-            # Scramble Logic
             if o == 'H':
                 c = random.randint(0, GRID_SIZE - l)
                 r = random.randint(0, GRID_SIZE - 1)
@@ -102,8 +104,7 @@ def generate_puzzle():
                 c = random.randint(0, GRID_SIZE - 1)
                 r = random.randint(0, GRID_SIZE - l)
             
-            # Anti-Easy Logic: Don't clutter the exit row too much
-            if r == 2 and o == 'H': 
+            if r == 2 and o == 'H': # Avoid cluttering exit row
                 fails += 1
                 continue
                 
@@ -113,7 +114,7 @@ def generate_puzzle():
             else:
                 fails += 1
         
-        # Check Solvability
+        # 3. Solve Check
         if len(temp_blocks) >= 6:
             result = solve_board(temp_blocks)
             
@@ -124,20 +125,17 @@ def generate_puzzle():
                         "id": i, "col": b.col, "row": b.row, "length": b.length, "orientation": b.orientation, "is_target": b.is_target
                     })
                 
-                # Keep track of the hardest one found so far
                 if result > max_difficulty:
                     max_difficulty = result
                     best_data = data
                 
-                # If it's hard enough, return instantly
+                # If puzzle is decent (6+ moves), return instantly
                 if result >= 6: 
                     return data
 
-    # --- THE FIX IS HERE ---
-    # If time runs out, return the BEST one we found, even if it's easy.
-    # This prevents the infinite loop / hanging screen.
-    if best_data is not None:
+    # 4. Fallback
+    if best_data:
         return best_data
-    else:
-        # Only recurse if we literally found NOTHING (very rare)
-        return generate_puzzle()
+    
+    # Emergency fallback (should theoretically never hit here with 1.0s timeout)
+    return generate_puzzle()
