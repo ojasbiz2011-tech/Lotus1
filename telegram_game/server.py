@@ -15,7 +15,8 @@ users = {}
 GLOBAL_POOL = 50.00 
 RECENT_LOGS = [] # Stores: "User X added ₹0.10"
 
-# SERVE TEMPLATES (HTML)
+# SERVE TEMPLATES
+# We strictly look inside the 'templates' folder for index.html
 templates = Jinja2Templates(directory="templates")
 
 @app.get("/", response_class=HTMLResponse)
@@ -28,8 +29,7 @@ def get_level():
 
 @app.post("/api/submit_game")
 async def submit_game(req: Request):
-    data = await req.json()
-    # In a real app, valid moves here. For now, we trust the client.
+    # Just a placeholder for now
     return {"status": "ok"}
 
 @app.post("/api/ads/confirm")
@@ -49,9 +49,9 @@ async def confirm_ad(req: Request):
     added_amount = 0.10
     GLOBAL_POOL += added_amount
     
-    # 3. Add to Log (Keep last 20)
+    # 3. Add to Log (Keep last 20 entries)
     log_entry = f"{name} added ₹{added_amount:.2f}"
-    RECENT_LOGS.insert(0, log_entry) # Add to top
+    RECENT_LOGS.insert(0, log_entry) 
     if len(RECENT_LOGS) > 20:
         RECENT_LOGS.pop()
         
@@ -59,11 +59,12 @@ async def confirm_ad(req: Request):
 
 @app.get("/api/user/{user_id}")
 def get_user(user_id: int):
-    # Calculate Leaderboard Rank on the fly
+    # Calculate Leaderboard Rank
     sorted_users = sorted(users.values(), key=lambda x: x['ads_watched'], reverse=True)
     
-    # Find user stats
+    # Get current user data
     user_data = users.get(user_id, {"wallet": 0.0, "ads_watched": 0, "name": "You"})
+    
     try:
         rank = sorted_users.index(user_data) + 1
     except:
