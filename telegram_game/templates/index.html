@@ -62,7 +62,7 @@
         <div style="color: #888; margin-bottom: 10px; font-size: 12px; letter-spacing: 2px;">SPONSORED VIDEO</div>
         <div id="ad-wrapper">
             <div style="color:#444; font-size:12px;">Loading Ad...</div>
-            </div>
+        </div>
         <button id="close-ad-btn" onclick="finishAd()">WAIT 5s</button>
     </div>
 
@@ -147,6 +147,11 @@
         }
 
         function watchAd() {
+            // FIX: Clear game state IMMEDIATELY so "SOLVED" disappears
+            gameState.won = false;
+            gameState.blocks = []; // Clear board
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // Wipe canvas
+            
             document.getElementById('ad-overlay').style.display = 'flex';
             let timeLeft = 5;
             let btn = document.getElementById('close-ad-btn');
@@ -170,11 +175,7 @@
             startGame();
         }
 
-        async function startGame() {
-            showScreen('screen-game'); 
-            gameState.blocks = []; 
-
-            // --- UI FIX: PAINT "GENERATING" TEXT FIRST ---
+        function drawLoading() {
             ctx.fillStyle = C_BG; 
             ctx.fillRect(0,0,canvas.width, canvas.height);
             ctx.fillStyle = C_TEXT; 
@@ -182,18 +183,29 @@
             ctx.textAlign = "center"; 
             ctx.fillText("Generating Level....", canvas.width/2, canvas.height/2); 
             ctx.textAlign = "start";
-            
-            // Force delay to let browser render
-            await new Promise(r => setTimeout(r, 50)); 
-            
-            let res = await fetch('/api/generate_level'); 
-            let levelData = await res.json();
-            
-            gameState.blocks = levelData.map((b, i) => ({
-                id: i, col: b.col, row: b.row, initialCol: b.col, initialRow: b.row, length: b.length, orientation: b.orientation, is_target: b.is_target,
-                rect: calculateRect(b.col, b.row, b.length, b.orientation), startCol: b.col, startRow: b.row
-            }));
-            gameState.moves = []; gameState.moveCount = 0; gameState.won = false;
+        }
+
+        function startGame() {
+            showScreen('screen-game'); 
+            gameState.won = false; // Double check reset
+            gameState.blocks = []; 
+
+            // FIX: Use requestAnimationFrame to FORCE a paint frame before fetching
+            window.requestAnimationFrame(() => {
+                drawLoading(); // Draw the text
+                
+                // Use a second frame to ensure the paint actually happened on screen
+                window.requestAnimationFrame(async () => {
+                    let res = await fetch('/api/generate_level'); 
+                    let levelData = await res.json();
+                    
+                    gameState.blocks = levelData.map((b, i) => ({
+                        id: i, col: b.col, row: b.row, initialCol: b.col, initialRow: b.row, length: b.length, orientation: b.orientation, is_target: b.is_target,
+                        rect: calculateRect(b.col, b.row, b.length, b.orientation), startCol: b.col, startRow: b.row
+                    }));
+                    gameState.moves = []; gameState.moveCount = 0; gameState.won = false;
+                });
+            });
         }
 
         function calculateRect(col, row, length, orientation) {
@@ -213,13 +225,19 @@
             ctx.moveTo(x+3, y+h-2); ctx.lineTo(x+w-3, y+h-2); ctx.moveTo(x+w-2, y+3); ctx.lineTo(x+w-2, y+h-3); ctx.stroke();
         }
         function gameLoop() {
+            // Only loop if we have blocks. If empty (loading), stop redrawing over the loading text
+            if(gameState.blocks.length === 0 && !gameState.won) return;
+
             ctx.fillStyle = C_BG; ctx.fillRect(0, 0, canvas.width, canvas.height);
             let frameX = GRID_OFFSET_X - 15; let frameY = GRID_OFFSET_Y - 15; let frameSize = GRID_SIZE * TILE_SIZE + 30;
             ctx.fillStyle = C_FRAME; ctx.beginPath(); ctx.roundRect(frameX, frameY, frameSize, frameSize, 12); ctx.fill();
             ctx.fillStyle = C_WELL; ctx.beginPath(); ctx.roundRect(frameX+10, frameY+10, frameSize-20, frameSize-20, 4); ctx.fill();
             ctx.fillStyle = "black"; let exitY = GRID_OFFSET_Y + (2 * TILE_SIZE) + 5; ctx.fillRect(frameX + frameSize - 20, exitY, 25, TILE_SIZE - 10);
+            
             if(gameState.blocks.length > 0) { gameState.blocks.forEach(drawBlock); }
+            
             ctx.fillStyle = C_TEXT; ctx.font = "bold 24px Verdana"; let text = `Moves: ${gameState.moveCount}`; ctx.fillText(text, (canvas.width - ctx.measureText(text).width)/2, 80);
+            
             if(gameState.won) { 
                 ctx.fillStyle = "rgba(0,0,0,0.7)"; ctx.fillRect(0,0,canvas.width, canvas.height);
                 ctx.fillStyle = "rgb(0, 255, 0)"; ctx.font = "bold 40px Verdana"; ctx.textAlign = "center"; ctx.fillText("SOLVED!", canvas.width/2, canvas.height/2); ctx.textAlign = "start";
