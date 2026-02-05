@@ -82,7 +82,6 @@
 
         async function startGame() {
             showScreen('screen-game');
-            // Optimistic Loading (don't wait for server to switch screen)
             gameState.blocks = []; 
             let res = await fetch('/api/generate_level');
             let levelData = await res.json();
@@ -144,13 +143,16 @@
         }
 
         function handleStart(x, y) {
-            if(gameState.won) return;
-            // BUTTON CLICK: NEXT >
+            // 1. CHECK NEXT BUTTON FIRST (So it works even if you won!)
             if(y < 80 && x > canvas.width - 100) { 
                  showScreen('screen-ads'); 
                  return; 
             }
 
+            // 2. CHECK WIN STATE (If won, stop moving blocks)
+            if(gameState.won) return;
+
+            // 3. CHECK BLOCKS
             for(let b of gameState.blocks) {
                 if(x >= b.rect.x && x <= b.rect.x + b.rect.w && y >= b.rect.y && y <= b.rect.y + b.rect.h) {
                     selectedBlock = b; dragOffset.x = b.rect.x - x; dragOffset.y = b.rect.y - y;
@@ -174,12 +176,53 @@
         function handleEnd() {
             if(!selectedBlock) return;
             let sb = selectedBlock;
-            let idealCol = Math.round((sb.rect.x - GRID_OFFSET_X) / TILE_SIZE); let idealRow = Math.round((sb.rect.y - GRID_OFFSET_Y) / TILE_SIZE);
-            if(sb.orientation === 'H') idealRow = sb.row; else idealCol = sb.col;
-            if(!checkCollisionGrid(idealCol, idealRow, sb, gameState.blocks)) { sb.col = idealCol; sb.row = idealRow; } else { sb.col = sb.startCol; sb.row = sb.startRow; }
+            
+            // 1. Calculate where you tried to go (Rounded)
+            let idealCol = Math.round((sb.rect.x - GRID_OFFSET_X) / TILE_SIZE);
+            let idealRow = Math.round((sb.rect.y - GRID_OFFSET_Y) / TILE_SIZE);
+            
+            // Lock to axis
+            if(sb.orientation === 'H') idealRow = sb.row; 
+            else idealCol = sb.col;
+
+            // 2. CHECK: Is the ideal spot valid?
+            if(checkCollisionGrid(idealCol, idealRow, sb, gameState.blocks)) {
+                // COLLISION! The ideal spot is blocked.
+                // SMART FIX: Check if we can "step back" one tile instead of resetting completely?
+                
+                // Calculate direction we were dragging
+                let dCol = idealCol - sb.startCol;
+                let dRow = idealRow - sb.startRow;
+                
+                // If we tried to move +2 but hit a wall, try +1
+                if (Math.abs(dCol) > 1) {
+                     let backupCol = sb.startCol + (dCol > 0 ? dCol - 1 : dCol + 1);
+                     if(!checkCollisionGrid(backupCol, idealRow, sb, gameState.blocks)) idealCol = backupCol;
+                     else idealCol = sb.startCol; // Give up
+                } 
+                else if (Math.abs(dRow) > 1) {
+                     let backupRow = sb.startRow + (dRow > 0 ? dRow - 1 : dRow + 1);
+                     if(!checkCollisionGrid(idealCol, backupRow, sb, gameState.blocks)) idealRow = backupRow;
+                     else idealRow = sb.startRow; // Give up
+                } 
+                else {
+                    // We only moved 1 tile and hit a wall. Snap back.
+                    idealCol = sb.startCol;
+                    idealRow = sb.startRow;
+                }
+            }
+
+            // 3. Apply the Move
+            sb.col = idealCol; 
+            sb.row = idealRow;
+            
+            // 4. Recalculate Visuals
             sb.rect = calculateRect(sb.col, sb.row, sb.length, sb.orientation);
+            
+            // 5. Register Move (Only if actually changed)
             if(sb.col !== sb.startCol || sb.row !== sb.startRow) {
-                gameState.moveCount++; gameState.moves.push({ id: sb.id, col: sb.col, row: sb.row });
+                gameState.moveCount++; 
+                gameState.moves.push({ id: sb.id, col: sb.col, row: sb.row });
                 if(sb.is_target && sb.col === 4) { gameState.won = true; submitGame(); }
             }
             selectedBlock = null;
@@ -213,11 +256,24 @@
         canvas.addEventListener('touchstart', e => { e.preventDefault(); handleStart(e.touches[0].clientX, e.touches[0].clientY); }, {passive: false});
         canvas.addEventListener('touchmove', e => { e.preventDefault(); handleMove(e.touches[0].clientX, e.touches[0].clientY); }, {passive: false});
         canvas.addEventListener('touchend', handleEnd);
+        
+        // Keyboard: 'N' key now opens Ads instead of restarting
+        document.addEventListener('keydown', (e) => { 
+            if(document.getElementById('screen-game').classList.contains('active')) { 
+                if(e.key.toLowerCase() === 'n') showScreen('screen-ads'); 
+            } 
+        });
 
-        async function loadUserData() { try{ let res=await fetch(`/api/user/${userId}`); let d=await res.json(); document.getElementById('pool-display').innerText="₹"+(d.wallet*100).toFixed(2); document.getElementById('rank-display').innerText=d.rank; }catch(e){} }
+        async function loadUserData() { try{ let res=await fetch(`/api/user/${userId}`); let d=await res.json(); document.getElementById('pool-display').innerText="₹"+(d.global_pool).toFixed(2); document.getElementById('rank-display').innerText=d.rank; }catch(e){} }
         async function checkAdsAndPlay() { try{ let res=await fetch(`/api/user/${userId}`); if((await res.json()).ads_watched>=1) startGame(); else showScreen('screen-ads'); }catch(e){showScreen('screen-ads');} }
         function watchAd() { setTimeout(async()=>{ await fetch('/api/ads/confirm', {method:'POST', body:JSON.stringify({user_id:userId})}); startGame(); }, 1000); }
-        async function submitGame() { setTimeout(async () => { await fetch('/api/submit_game', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ user_id: userId, initial_level: gameState.blocks, moves: gameState.moves }) }); alert(`SOLVED!`); showScreen('screen-home'); }, 200); }
+        
+        // FIXED SUBMIT: No Alert, No Redirect
+        async function submitGame() { 
+            // Just send data silently
+            await fetch('/api/submit_game', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ user_id: userId, initial_level: gameState.blocks, moves: gameState.moves }) }); 
+            // We do nothing else. The game loop will keep showing "SOLVED!" and the user can click "Next >" when ready.
+        }
     </script>
 </body>
 </html>
