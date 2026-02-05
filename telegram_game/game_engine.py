@@ -6,6 +6,7 @@ from collections import deque
 
 pygame.init()
 
+# --- CONFIGURATION ---
 GRID_SIZE = 6
 TILE_SIZE = 85
 
@@ -16,7 +17,7 @@ class Block:
         self.length = length
         self.orientation = orientation
         self.is_target = is_target
-        # Visual data for collision checks
+        # Visual/Rect data
         self.gap = 3
         if self.orientation == 'H':
             self.width = length * TILE_SIZE - (self.gap * 2)
@@ -50,8 +51,6 @@ def solve_board(blocks):
     start_state = tuple((b.col, b.row) for b in sim)
     queue = deque([(start_state, 0)])
     visited = {start_state}
-    
-    # Lower depth for speed
     max_depth = 40 
     
     while queue:
@@ -76,21 +75,33 @@ def solve_board(blocks):
                         queue.append((nt, depth+1))
     return -1
 
+# --- SAFETY VALVE: A known valid level ---
+# Used if generation times out.
+FALLBACK_LEVEL = [
+    {"id":0, "col":0, "row":2, "length":2, "orientation":"H", "is_target":True},
+    {"id":1, "col":2, "row":0, "length":3, "orientation":"V", "is_target":False},
+    {"id":2, "col":4, "row":0, "length":2, "orientation":"V", "is_target":False},
+    {"id":3, "col":0, "row":4, "length":2, "orientation":"V", "is_target":False},
+    {"id":4, "col":2, "row":3, "length":2, "orientation":"H", "is_target":False},
+    {"id":5, "col":4, "row":2, "length":3, "orientation":"V", "is_target":False},
+    {"id":6, "col":0, "row":0, "length":2, "orientation":"H", "is_target":False},
+    {"id":7, "col":3, "row":5, "length":2, "orientation":"H", "is_target":False}
+]
+
 def generate_puzzle():
     start_time = time.time()
     best_data = None
     max_difficulty = -1
     
-    # TIGHT TIMEOUT: 1.0 second max.
-    # If we exceed this, we return 'best_data' immediately.
+    # 1.0 Second Hard Timeout
     while time.time() - start_time < 1.0:
         
-        # 1. Target Block (Red) - Always Row 2, Col 0 or 1
+        # FIX: Force Target to Left (0 or 1) to prevent instant wins
         target_col = random.randint(0, 1)
         temp_blocks = [Block(target_col, 2, 2, 'H', True)]
         
-        # 2. Add Obstacles (9 to 13 blocks)
-        target_count = random.randint(9, 13)
+        # RESTORED DENSITY: 14 to 18 blocks (The "Original" feel)
+        target_count = random.randint(14, 18)
         fails = 0
         
         while len(temp_blocks) < target_count and fails < 100:
@@ -104,7 +115,7 @@ def generate_puzzle():
                 c = random.randint(0, GRID_SIZE - 1)
                 r = random.randint(0, GRID_SIZE - l)
             
-            if r == 2 and o == 'H': # Avoid cluttering exit row
+            if r == 2 and o == 'H': 
                 fails += 1
                 continue
                 
@@ -114,8 +125,8 @@ def generate_puzzle():
             else:
                 fails += 1
         
-        # 3. Solve Check
-        if len(temp_blocks) >= 6:
+        # Only check valid puzzles
+        if len(temp_blocks) >= 8:
             result = solve_board(temp_blocks)
             
             if result > 0:
@@ -129,13 +140,12 @@ def generate_puzzle():
                     max_difficulty = result
                     best_data = data
                 
-                # If puzzle is decent (6+ moves), return instantly
-                if result >= 6: 
+                # If it takes >8 moves, it's good enough. Return instantly.
+                if result >= 8: 
                     return data
 
-    # 4. Fallback
+    # SAFETY CHECK: If we found NOTHING in 1 second (rare), return the fallback
     if best_data:
         return best_data
-    
-    # Emergency fallback (should theoretically never hit here with 1.0s timeout)
-    return generate_puzzle()
+    else:
+        return FALLBACK_LEVEL
