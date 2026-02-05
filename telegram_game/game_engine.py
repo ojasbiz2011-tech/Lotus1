@@ -1,14 +1,11 @@
-import pygame
 import random
 import copy
 import time
 from collections import deque
 
-pygame.init()
-
 # --- CONFIGURATION ---
 GRID_SIZE = 6
-TILE_SIZE = 85
+# Note: TILE_SIZE is handled on frontend, logic only needs grid coords
 
 class Block:
     def __init__(self, col, row, length, orientation, is_target=False):
@@ -17,17 +14,9 @@ class Block:
         self.length = length
         self.orientation = orientation
         self.is_target = is_target
-        # Visual/Rect data
-        self.gap = 3
-        if self.orientation == 'H':
-            self.width = length * TILE_SIZE - (self.gap * 2)
-            self.height = TILE_SIZE - (self.gap * 2)
-        else:
-            self.width = TILE_SIZE - (self.gap * 2)
-            self.height = length * TILE_SIZE - (self.gap * 2)
-        self.rect = pygame.Rect(0, 0, self.width, self.height)
 
 def check_grid_collision(c, r, b, all_blocks):
+    # Boundary
     if c < 0 or r < 0: return True
     if b.orientation == 'H':
         if c + b.length > GRID_SIZE: return True
@@ -36,6 +25,7 @@ def check_grid_collision(c, r, b, all_blocks):
         if r + b.length > GRID_SIZE: return True
         cells = set((c, r + i) for i in range(b.length))
     
+    # Overlap
     for o in all_blocks:
         if o is b: continue
         o_cells = set((o.col + i, o.row) if o.orientation == 'H' else (o.col, o.row + i) for i in range(o.length))
@@ -75,9 +65,8 @@ def solve_board(blocks):
                         queue.append((nt, depth+1))
     return -1
 
-# --- SAFETY VALVE: A known valid level ---
-# Used if generation times out.
-FALLBACK_LEVEL = [
+# A backup level in case generation times out (Prevents loading stuck)
+BACKUP_LEVEL = [
     {"id":0, "col":0, "row":2, "length":2, "orientation":"H", "is_target":True},
     {"id":1, "col":2, "row":0, "length":3, "orientation":"V", "is_target":False},
     {"id":2, "col":4, "row":0, "length":2, "orientation":"V", "is_target":False},
@@ -89,22 +78,18 @@ FALLBACK_LEVEL = [
 ]
 
 def generate_puzzle():
+    # 1.5 Second Timeout as requested
     start_time = time.time()
-    best_data = None
-    max_difficulty = -1
     
-    # 1.0 Second Hard Timeout
-    while time.time() - start_time < 1.0:
+    while time.time() - start_time < 1.5:
+        # Target: Row 2, Random Col 0-2 (From your code)
+        temp_blocks = [Block(random.randint(0, 1), 2, 2, 'H', True)]
         
-        # FIX: Force Target to Left (0 or 1) to prevent instant wins
-        target_col = random.randint(0, 1)
-        temp_blocks = [Block(target_col, 2, 2, 'H', True)]
-        
-        # RESTORED DENSITY: 14 to 18 blocks (The "Original" feel)
+        # High Density: 14-18 blocks (From your code)
         target_count = random.randint(14, 18)
         fails = 0
         
-        while len(temp_blocks) < target_count and fails < 100:
+        while len(temp_blocks) < target_count and fails < 50:
             l = random.choice([2, 2, 3])
             o = random.choice(['H', 'V'])
             
@@ -115,7 +100,8 @@ def generate_puzzle():
                 c = random.randint(0, GRID_SIZE - 1)
                 r = random.randint(0, GRID_SIZE - l)
             
-            if r == 2 and o == 'H': 
+            # OG Logic: No horizontal blocks on row 2 except hero
+            if r == 2 and o == 'H':
                 fails += 1
                 continue
                 
@@ -125,27 +111,19 @@ def generate_puzzle():
             else:
                 fails += 1
         
-        # Only check valid puzzles
-        if len(temp_blocks) >= 8:
+        # Verify Solvability (At least 8 moves to be fun)
+        if len(temp_blocks) >= 10:
             result = solve_board(temp_blocks)
-            
-            if result > 0:
+            if result >= 8:
+                # Convert to JSON for frontend
                 data = []
                 for i, b in enumerate(temp_blocks):
                     data.append({
-                        "id": i, "col": b.col, "row": b.row, "length": b.length, "orientation": b.orientation, "is_target": b.is_target
+                        "id": i, "col": b.col, "row": b.row, 
+                        "length": b.length, "orientation": b.orientation, 
+                        "is_target": b.is_target
                     })
-                
-                if result > max_difficulty:
-                    max_difficulty = result
-                    best_data = data
-                
-                # If it takes >8 moves, it's good enough. Return instantly.
-                if result >= 8: 
-                    return data
+                return data
 
-    # SAFETY CHECK: If we found NOTHING in 1 second (rare), return the fallback
-    if best_data:
-        return best_data
-    else:
-        return FALLBACK_LEVEL
+    # If 1.5s passes and no level is found, return backup (Prevents Stuck Screen)
+    return BACKUP_LEVEL
