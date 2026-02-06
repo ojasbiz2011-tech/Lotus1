@@ -3,485 +3,496 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Dense Wood Escape</title>
+    <title>Floppy Bird Challenge</title>
 
     <script src='//libtl.com/sdk.js' data-zone='10572322' data-sdk='show_10572322'></script>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+
     <style>
-        body { margin: 0; padding: 0; background-color: rgb(250, 242, 230); font-family: 'Verdana', sans-serif; overflow: hidden; user-select: none; }
+        body { 
+            margin: 0; padding: 0; 
+            background-color: #70c5ce; 
+            font-family: 'Press Start 2P', cursive; 
+            overflow: hidden; 
+            user-select: none; 
+            touch-action: none;
+        }
+
+        /* UTILS */
+        .hidden { display: none !important; }
         
-        /* SCREENS & NAVIGATION */
-        .screen { display: none; width: 100%; height: 100vh; position: absolute; top: 0; left: 0; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 20px; box-sizing: border-box; }
-        .active { display: flex; }
+        /* SCREENS */
+        .screen { 
+            width: 100%; height: 100vh; 
+            position: absolute; top: 0; left: 0; 
+            display: flex; flex-direction: column; align-items: center; 
+            z-index: 10;
+        }
 
-        /* UI ELEMENTS */
-        h1 { color: rgb(80, 50, 30); margin-bottom: 5px; font-size: 24px; font-weight: bold; text-align: center; }
+        /* HOME SCREEN */
+        #screen-home {
+            background: linear-gradient(#70c5ce, #fff); /* Fallback */
+            justify-content: center;
+        }
         
-        .card { 
-            background: rgb(250, 242, 230); border: 4px solid rgb(101, 67, 33); 
-            padding: 15px; border-radius: 12px; width: 85%; text-align: center; 
-            margin-bottom: 10px; color: rgb(80, 50, 30); 
-            box-shadow: 0 4px 0 rgba(101,67,33,0.2); 
+        .logo {
+            font-size: 30px; color: #fff; 
+            text-shadow: 4px 4px 0 #000;
+            margin-bottom: 20px; text-align: center;
+            line-height: 1.5;
         }
 
-        .btn { 
-            background: rgb(101, 67, 33); color: white; padding: 15px 30px; 
-            border-radius: 8px; font-weight: bold; margin: 5px; cursor: pointer; 
-            border: 2px solid rgb(80, 50, 30); box-shadow: 0 4px 6px rgba(0,0,0,0.3); 
-            font-size: 16px; width: 80%;
+        .score-board {
+            background: #ded895;
+            border: 4px solid #543847;
+            padding: 15px;
+            text-align: center;
+            margin-bottom: 30px;
+            width: 80%;
+            border-radius: 4px;
+            box-shadow: 0 6px 0 rgba(0,0,0,0.2);
         }
-        .btn-gold { background: #d4af37; color: black; border-color: #b8962e; }
-        .btn-red { background: rgb(205, 70, 70); border-color: rgb(150, 50, 50); }
-        .btn-small { width: auto; padding: 8px 15px; font-size: 14px; margin: 0; }
+        .score-label { color: #e58d25; font-size: 10px; margin-bottom: 5px; }
+        .score-val { color: #fff; font-size: 20px; text-shadow: 2px 2px 0 #000; }
 
-        /* GAME HEADER */
-        .game-header {
-            width: 100%; display: flex; justify-content: space-between; 
-            padding: 10px 25px; 
-            position: absolute; top: 0; left: 0; z-index: 100;
-            box-sizing: border-box;
+        /* BUTTONS */
+        .btn {
+            background: #e6522c; /* Reddish Orange */
+            border: 4px solid #fff;
+            color: #fff;
+            padding: 15px 20px;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 14px;
+            cursor: pointer;
+            margin: 10px;
+            box-shadow: 4px 4px 0 #000;
+            text-shadow: 2px 2px 0 #000;
+            transition: transform 0.1s;
+        }
+        .btn:active { transform: translate(4px, 4px); box-shadow: 0 0 0 #000; }
+        .btn-green { background: #55b62b; }
+        .btn-blue { background: #3b8ad9; }
+
+        /* GAME OVER OVERLAY */
+        #game-over-modal {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: #ded895;
+            border: 4px solid #543847;
+            padding: 20px;
+            text-align: center;
+            display: none;
+            z-index: 20;
+            width: 80%;
         }
 
-        /* LOGS & LEADERBOARD */
-        .log-box { 
-            height: 80px; overflow-y: auto; font-size: 12px; text-align: left; 
-            background: rgba(101, 67, 33, 0.05); border: 2px solid rgb(101, 67, 33); 
-            border-radius: 8px; padding: 5px; margin-top: 10px; 
+        /* SCORE HUD */
+        #hud-score {
+            position: absolute; top: 10%; width: 100%;
+            text-align: center; font-size: 40px; color: white;
+            text-shadow: 4px 4px 0 #000;
+            z-index: 5; pointer-events: none;
         }
-        .log-item { padding: 3px 0; border-bottom: 1px dashed rgb(101, 67, 33); color: rgb(80, 50, 30); }
-        .lb-list { height: 60vh; overflow-y: auto; text-align: left; }
-        .lb-row { display: flex; justify-content: space-between; padding: 8px; border-bottom: 1px solid rgba(101,67,33,0.3); }
+        
+        /* LOGS */
+        .logs-box {
+            font-size: 8px; color: #543847; 
+            margin-top: 10px; height: 50px; overflow-y: scroll;
+            width: 80%; background: rgba(255,255,255,0.3); padding: 5px;
+        }
 
-        canvas { touch-action: none; display: block; }
+        canvas { 
+            display: block; width: 100%; height: 100%; 
+            image-rendering: pixelated; 
+        }
     </style>
 </head>
 <body>
 
-    <div id="screen-home" class="screen active">
-        <h1>Dense Wood Escape</h1>
-        <div class="card">
-            <h3>🏆 Weekly Prize Pool</h3>
-            <h2 id="pool-display">₹0.00</h2>
-            <div class="log-box" id="activity-log"><div class="log-item">Loading...</div></div>
+    <div id="screen-home" class="screen">
+        <div class="logo">FLOPPY<br>BIRD</div>
+        
+        <div class="score-board">
+            <div class="score-label">WEEKLY BEST</div>
+            <div class="score-val" id="best-score">0</div>
         </div>
-        <div class="card" style="padding: 10px;">
-            <div style="display: flex; justify-content: space-around;">
-                <div><span style="font-size:10px;">YOUR RANK</span><br><b style="font-size:20px;" id="my-rank">-</b></div>
-                <div><span style="font-size:10px;">SCORE</span><br><b style="font-size:20px;" id="my-score">0</b></div>
-            </div>
-        </div>
-        <button class="btn" onclick="watchAd()">▶ Play Puzzle</button>
-        <button class="btn btn-gold" onclick="showScreen('screen-leaderboard')">🏅 Leaderboard</button>
+
+        <button class="btn btn-green" onclick="startGame()">▶ START GAME</button>
+        <button class="btn btn-blue" onclick="loadLeaderboard()">🏆 RANKING</button>
+        
+        <div class="logs-box" id="recent-logs">Loading logs...</div>
     </div>
 
-    <div id="screen-leaderboard" class="screen">
-        <h1>Top Players</h1>
-        <div class="card lb-list" id="lb-content"><div>Loading...</div></div>
-        <button class="btn" onclick="showScreen('screen-home')">⬅ Back Home</button>
-    </div>
-
-    <div id="screen-game" class="screen">
-        <div class="game-header">
-            <button class="btn btn-small" onclick="exitGame()">❌ Exit</button>
-            <button class="btn btn-small btn-red" onclick="watchAd()">New Level ></button>
-        </div>
+    <div id="screen-game" class="screen hidden">
+        <div id="hud-score">0</div>
         <canvas id="gameCanvas"></canvas>
+        
+        <div id="game-over-modal">
+            <h2 style="color: #e6522c; margin-top:0; text-shadow: 2px 2px 0 #000;">GAME OVER</h2>
+            <p>SCORE: <span id="final-score">0</span></p>
+            
+            <button id="btn-revive" class="btn btn-blue" onclick="startReviveChain()">
+                📺 REVIVE (0/3)
+            </button>
+            <br>
+            <button class="btn" onclick="quitGame()">❌ QUIT</button>
+        </div>
     </div>
 
 <script>
 // --- CONFIGURATION ---
-const GRID_SIZE = 6;
-const GAP = 3;
+const GRAVITY = 0.25;
+const JUMP = -4.6;
+const PIPE_SPEED = 2;
+const PIPE_SPAWN_RATE = 120; // Frames
+const PIPE_GAP = 100; // Gap size
 
-// --- THEME ---
-const COLOR_BG = "rgb(250, 242, 230)";
-const COLOR_FRAME = "rgb(101, 67, 33)";
-const COLOR_WELL = "rgb(180, 130, 70)";
-const COLOR_RED = "rgb(205, 70, 70)";
-const COLOR_H = "rgb(235, 210, 150)";
-const COLOR_V = "rgb(210, 180, 130)";
-const COLOR_TEXT = "rgb(80, 50, 30)";
+// --- ASSETS ---
+const bgImage = new Image();
+bgImage.src = 'flappy_bird_app_bg_only.png'; 
+// Note: If image fails, we fallback to blue color
 
-// Canvas Variables
-let canvas = document.getElementById("gameCanvas");
-let ctx = canvas.getContext("2d");
-let SCREEN_WIDTH, SCREEN_HEIGHT, TILE_SIZE, GRID_OFFSET_X, GRID_OFFSET_Y;
+// --- AUDIO (Synthesized) ---
+const AudioContext = window.AudioContext || window.webkitAudioContext;
+let audioCtx;
 
-// Game State
-let blocks = [];
-let selected = null;
-let won = false;
-let moves = 0;
-let dragOffset = {x: 0, y: 0};
-let startP = {col: 0, row: 0};
-let isGenerating = false; 
-let activeTouchId = null; 
+function initAudio() {
+    if (!audioCtx) audioCtx = new AudioContext();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+}
 
-// --- RESIZE HANDLER ---
-function resizeCanvas() {
-    SCREEN_WIDTH = window.innerWidth;
-    SCREEN_HEIGHT = window.innerHeight;
-    canvas.width = SCREEN_WIDTH;
-    canvas.height = SCREEN_HEIGHT;
+function playSound(type) {
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
 
-    let maxW = SCREEN_WIDTH * 0.90;
-    let maxH = SCREEN_HEIGHT * 0.75;
-    let tileW = maxW / GRID_SIZE;
-    let tileH = maxH / GRID_SIZE;
-    TILE_SIZE = Math.floor(Math.min(tileW, tileH));
+    if (type === 'jump') {
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(600, audioCtx.currentTime + 0.1);
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+    } else if (type === 'die') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.3);
+        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+    } else if (type === 'score') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(1000, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+    }
+}
+
+// --- GAME STATE ---
+let canvas = document.getElementById('gameCanvas');
+let ctx = canvas.getContext('2d');
+let frames = 0;
+let score = 0;
+let bestScore = 0;
+let gameState = 'START'; // START, PLAYING, GAMEOVER
+let adsWatched = 0; // For revive logic
+
+let bird = { x: 50, y: 150, w: 34, h: 24, velocity: 0, frame: 0 };
+let pipes = [];
+
+// --- RESIZE ---
+function resize() {
+    canvas.width = 320; // Internal resolution (retro feel)
+    canvas.height = 480;
+    // CSS handles the stretching to full screen
+}
+resize();
+
+// --- GAME LOOP ---
+function loop() {
+    update();
+    draw();
+    if (gameState !== 'QUIT') requestAnimationFrame(loop);
+}
+
+function update() {
+    if (gameState !== 'PLAYING') return;
+
+    frames++;
+
+    // Bird Physics
+    bird.velocity += GRAVITY;
+    bird.y += bird.velocity;
+
+    // Ground Collision
+    let groundY = canvas.height - 112; // Approximation of ground height in BG
+    if (bird.y + bird.h >= groundY) {
+        bird.y = groundY - bird.h;
+        gameOver();
+    }
+
+    // Pipe Logic
+    if (frames % PIPE_SPAWN_RATE === 0) {
+        let topH = Math.random() * (canvas.height - 200) + 20;
+        pipes.push({
+            x: canvas.width,
+            y: topH, // Height of bottom edge of top pipe
+            passed: false
+        });
+    }
+
+    for (let i = 0; i < pipes.length; i++) {
+        let p = pipes[i];
+        p.x -= PIPE_SPEED;
+
+        // Collision Check
+        // Top Pipe Rect: {x: p.x, y: 0, w: 52, h: p.y}
+        // Bottom Pipe Rect: {x: p.x, y: p.y + PIPE_GAP, w: 52, h: canvas.height}
+        
+        let birdLeft = bird.x + 2; // Hitbox adjustment
+        let birdRight = bird.x + bird.w - 2;
+        let birdTop = bird.y + 2;
+        let birdBottom = bird.y + bird.h - 2;
+
+        let pipeLeft = p.x;
+        let pipeRight = p.x + 52;
+
+        if (birdRight > pipeLeft && birdLeft < pipeRight) {
+            // Inside pipe horizontal area
+            if (birdTop < p.y || birdBottom > p.y + PIPE_GAP) {
+                gameOver();
+            }
+        }
+
+        // Score
+        if (p.x + 52 < bird.x && !p.passed) {
+            score++;
+            p.passed = true;
+            playSound('score');
+            document.getElementById('hud-score').innerText = score;
+        }
+
+        // Remove old pipes
+        if (p.x + 52 < 0) {
+            pipes.shift();
+            i--;
+        }
+    }
+}
+
+function draw() {
+    // 1. Background
+    if (bgImage.complete) {
+        ctx.drawImage(bgImage, 0, 0, canvas.width, canvas.height);
+    } else {
+        ctx.fillStyle = "#70c5ce";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // Draw basic ground
+        ctx.fillStyle = "#ded895";
+        ctx.fillRect(0, canvas.height - 112, canvas.width, 112);
+    }
+
+    // 2. Pipes
+    for (let p of pipes) {
+        drawPipe(p.x, p.y);
+    }
+
+    // 3. Bird
+    drawBird(bird.x, bird.y, bird.velocity);
+}
+
+// --- DRAWING HELPERS (Pixel Art Code) ---
+function drawBird(x, y, vel) {
+    ctx.save();
+    ctx.translate(x + bird.w/2, y + bird.h/2);
+    let rotation = Math.min(Math.PI / 4, Math.max(-Math.PI / 4, (vel * 0.1)));
+    ctx.rotate(rotation);
     
-    GRID_OFFSET_X = (SCREEN_WIDTH - (GRID_SIZE * TILE_SIZE)) / 2;
-    GRID_OFFSET_Y = (SCREEN_HEIGHT - (GRID_SIZE * TILE_SIZE)) / 2 + 30;
+    // Pixel Art Bird (Yellow body, white eye, orange beak)
+    let w = bird.w, h = bird.h;
+    
+    // Outline
+    ctx.fillStyle = "#543847"; // Dark stroke
+    ctx.fillRect(-w/2, -h/2, w, h);
+    
+    // Body
+    ctx.fillStyle = "#e9fc00"; // Yellow
+    ctx.fillRect(-w/2 + 2, -h/2 + 2, w - 4, h - 4);
+    
+    // Eye
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(4, -8, 10, 10);
+    ctx.fillStyle = "#000"; // Pupil
+    ctx.fillRect(10, -6, 2, 2);
+    
+    // Beak
+    ctx.fillStyle = "#e6522c"; // Orange
+    ctx.fillRect(6, 2, 12, 6);
+    
+    // Wing
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(-10, 0, 12, 6);
 
-    if(blocks.length > 0) blocks.forEach(b => b.updatePixelPos());
-    requestAnimationFrame(render);
+    ctx.restore();
 }
-window.addEventListener('resize', resizeCanvas);
-resizeCanvas(); 
 
-// --- UI NAV ---
-function showScreen(id) {
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    document.getElementById(id).classList.add('active');
-    if(id === 'screen-home') loadUserData();
-    if(id === 'screen-game') { resizeCanvas(); requestAnimationFrame(render); }
+function drawPipe(x, topH) {
+    let w = 52;
+    let gap = PIPE_GAP;
+    
+    ctx.fillStyle = "#73bf2e"; // Light Green
+    ctx.strokeStyle = "#543847"; // Dark Outline
+    ctx.lineWidth = 2;
+
+    // Top Pipe
+    ctx.fillRect(x, 0, w, topH);
+    ctx.strokeRect(x, -2, w, topH); // Main body
+    ctx.fillRect(x - 2, topH - 24, w + 4, 24); // Cap
+    ctx.strokeRect(x - 2, topH - 24, w + 4, 24); // Cap outline
+
+    // Bottom Pipe
+    let botY = topH + gap;
+    let botH = canvas.height - botY - 112; // Stop at ground
+    ctx.fillRect(x, botY, w, botH);
+    ctx.strokeRect(x, botY, w, botH + 2);
+    ctx.fillRect(x - 2, botY, w + 4, 24); // Cap
+    ctx.strokeRect(x - 2, botY, w + 4, 24); // Cap outline
 }
 
-function exitGame() { showScreen('screen-home'); }
+// --- CONTROLS ---
+function jump() {
+    if (gameState === 'PLAYING') {
+        bird.velocity = JUMP;
+        playSound('jump');
+    }
+}
+window.addEventListener('mousedown', jump);
+window.addEventListener('touchstart', (e) => { e.preventDefault(); jump(); });
+
+// --- GAME LOGIC FLOW ---
+function startGame() {
+    initAudio();
+    document.getElementById('screen-home').classList.add('hidden');
+    document.getElementById('screen-game').classList.remove('hidden');
+    resetGame();
+    gameState = 'PLAYING';
+    loop();
+}
+
+function resetGame() {
+    bird.y = 150;
+    bird.velocity = 0;
+    pipes = [];
+    score = 0;
+    frames = 0;
+    document.getElementById('hud-score').innerText = '0';
+    document.getElementById('game-over-modal').style.display = 'none';
+    adsWatched = 0;
+    updateReviveBtn();
+}
+
+function gameOver() {
+    gameState = 'GAMEOVER';
+    playSound('die');
+    document.getElementById('final-score').innerText = score;
+    document.getElementById('game-over-modal').style.display = 'block';
+    
+    // Save Score
+    saveScore(score);
+}
+
+function quitGame() {
+    document.getElementById('screen-game').classList.add('hidden');
+    document.getElementById('screen-home').classList.remove('hidden');
+    loadUserData(); // Refresh logs
+}
+
+// --- REVIVE LOGIC (3 ADS) ---
+function updateReviveBtn() {
+    let btn = document.getElementById('btn-revive');
+    if (adsWatched >= 3) {
+        btn.innerText = "❤️ REVIVE NOW!";
+        btn.classList.add('btn-green');
+        btn.classList.remove('btn-blue');
+    } else {
+        btn.innerText = `📺 REVIVE (${adsWatched}/3)`;
+        btn.classList.remove('btn-green');
+        btn.classList.add('btn-blue');
+    }
+}
+
+function startReviveChain() {
+    if (adsWatched >= 3) {
+        // ACTUALLY REVIVE
+        gameState = 'PLAYING';
+        bird.y = 150; // Reset position safely
+        bird.velocity = 0;
+        pipes = []; // Clear pipes for safe start
+        document.getElementById('game-over-modal').style.display = 'none';
+        playSound('jump');
+        return;
+    }
+
+    // WATCH AD
+    if (typeof show_10572322 === 'function') {
+        show_10572322().then(() => {
+            adsWatched++;
+            updateReviveBtn();
+            if(adsWatched < 3) {
+                alert(`Ad ${adsWatched}/3 Complete. Watch ${3-adsWatched} more to revive.`);
+            }
+        }).catch(e => {
+            console.log("Ad Error", e);
+            // Fallback for testing (remove in production)
+            adsWatched++; 
+            updateReviveBtn();
+        });
+    } else {
+        alert("Ad script not loaded.");
+    }
+}
+
+// --- BACKEND SIMULATION ---
+async function saveScore(s) {
+    if (s > bestScore) bestScore = s;
+    try {
+        const userId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 12345;
+        // POST score to server
+        await fetch('/api/score/submit', { 
+            method: 'POST', 
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ user_id: userId, score: s }) 
+        });
+    } catch(e) {}
+}
 
 async function loadUserData() {
     try {
         const userId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 12345;
-        let res = await fetch(`/api/user/${userId}`);
-        if(res.ok) {
+        let res = await fetch(`/api/user/${userId}`); // Assume API returns weekly high score
+        if (res.ok) {
             let d = await res.json();
-            document.getElementById('pool-display').innerText = "₹" + d.global_pool.toFixed(2);
-            document.getElementById('my-rank').innerText = "#" + d.rank;
-            document.getElementById('my-score').innerText = d.ads_watched;
-            let logHTML = ""; d.recent_logs.forEach(l => logHTML += `<div class="log-item">🔔 ${l}</div>`);
-            document.getElementById('activity-log').innerHTML = logHTML || "<div class='log-item'>No recent activity</div>";
-            let lbHTML = ""; d.top_players.forEach((p, i) => {
-                let icon = i===0 ? "🥇" : (i===1 ? "🥈" : (i===2 ? "🥉" : "👤"));
-                lbHTML += `<div class="lb-row"><span>${icon} ${p.name}</span><b>${p.ads_watched}</b></div>`;
-            });
-            document.getElementById('lb-content').innerHTML = lbHTML || "<div>No players yet</div>";
+            document.getElementById('best-score').innerText = d.weekly_best || 0;
+            bestScore = d.weekly_best || 0;
+            
+            // Logs
+            let html = "";
+            if(d.logs) d.logs.forEach(l => html += `<div>Running: ${l} pipes</div>`);
+            document.getElementById('recent-logs').innerHTML = html || "No runs this week.";
         }
-    } catch(e) {}
-}
-
-// --- BLOCK CLASS ---
-class Block {
-    constructor(col, row, length, orientation, is_target=false) {
-        this.id = Math.random(); 
-        this.col = col; this.row = row; this.length = length;
-        this.orientation = orientation; this.is_target = is_target;
-        this.updatePixelPos();
-        
-        if (this.orientation === 'H') {
-            this.color = is_target ? COLOR_RED : COLOR_H;
-        } else {
-            this.color = COLOR_V;
-        }
-    }
-
-    updatePixelPos() {
-        if (this.orientation === 'H') {
-            this.width = this.length * TILE_SIZE - (GAP * 2);
-            this.height = TILE_SIZE - (GAP * 2);
-        } else {
-            this.width = TILE_SIZE - (GAP * 2);
-            this.height = this.length * TILE_SIZE - (GAP * 2);
-        }
-        this.rect = {
-            x: GRID_OFFSET_X + (this.col * TILE_SIZE) + GAP,
-            y: GRID_OFFSET_Y + (this.row * TILE_SIZE) + GAP,
-            w: this.width,
-            h: this.height
-        };
-    }
-
-    draw() {
-        // Shadow
-        ctx.fillStyle = "rgba(0, 0, 0, 0.16)";
-        roundRect(this.rect.x + 4, this.rect.y + 4, this.rect.w, this.rect.h, 6);
-        ctx.fill();
-        // Body
-        ctx.fillStyle = this.color;
-        roundRect(this.rect.x, this.rect.y, this.rect.w, this.rect.h, 6);
-        ctx.fill();
-        // Bevels
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = "rgb(255, 255, 255)"; 
-        ctx.beginPath(); ctx.moveTo(this.rect.x+3, this.rect.y+2); ctx.lineTo(this.rect.x+this.rect.w-3, this.rect.y+2);
-        ctx.moveTo(this.rect.x+2, this.rect.y+3); ctx.lineTo(this.rect.x+2, this.rect.y+this.rect.h-3); ctx.stroke();
-        ctx.strokeStyle = "rgb(0, 0, 0)";
-        ctx.beginPath(); ctx.moveTo(this.rect.x+3, this.rect.y+this.rect.h-2); ctx.lineTo(this.rect.x+this.rect.w-3, this.rect.y+this.rect.h-2);
-        ctx.moveTo(this.rect.x+this.rect.w-2, this.rect.y+3); ctx.lineTo(this.rect.x+this.rect.w-2, this.rect.y+this.rect.h-3); ctx.stroke();
-    }
-}
-function roundRect(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
-
-// --- COLLISION ---
-function checkGridCollision(c, r, b, allBlocks) {
-    if (c < 0 || r < 0) return true;
-    let cells = [];
-    if (b.orientation === 'H') {
-        if (c + b.length > GRID_SIZE) return true;
-        for(let i=0; i<b.length; i++) cells.push((c+i) + "," + r);
-    } else {
-        if (r + b.length > GRID_SIZE) return true;
-        for(let i=0; i<b.length; i++) cells.push(c + "," + (r+i));
-    }
-    for (let o of allBlocks) {
-        if (o.id === b.id) continue;
-        let oCells = [];
-        for(let i=0; i<o.length; i++) {
-            if(o.orientation === 'H') oCells.push((o.col+i) + "," + o.row);
-            else oCells.push(o.col + "," + (o.row+i));
-        }
-        for(let cell of cells) if(oCells.includes(cell)) return true;
-    }
-    return false;
-}
-
-function checkPixelCollision(rect, activeB, allBlocks) {
-    if (rect.x < GRID_OFFSET_X) return true;
-    if (rect.x + rect.w > GRID_OFFSET_X + (GRID_SIZE * TILE_SIZE)) return true;
-    if (rect.y < GRID_OFFSET_Y) return true;
-    if (rect.y + rect.h > GRID_OFFSET_Y + (GRID_SIZE * TILE_SIZE)) return true;
-    for (let o of allBlocks) {
-        if (o.id === activeB.id) continue;
-        if (rect.x < o.rect.x + o.rect.w - 2 && rect.x + rect.w > o.rect.x + 2 &&
-            rect.y < o.rect.y + o.rect.h - 2 && rect.y + rect.h > o.rect.y + 2) return true;
-    }
-    return false;
-}
-
-// --- SOLVER ---
-function solveBoard(simBlocks) {
-    let sim = simBlocks.map(b => ({ col: b.col, row: b.row, length: b.length, orientation: b.orientation, is_target: b.is_target, id: b.id }));
-    let targetIdx = sim.findIndex(b => b.is_target);
-    let startState = sim.map(b => b.col + "," + b.row).join("|");
-    let queue = [{state: startState, depth: 0}];
-    let visited = new Set([startState]);
-    let maxDepth = 40; 
-
-    while(queue.length > 0) {
-        let current = queue.shift();
-        if(current.depth > maxDepth) return -1;
-        let positions = current.state.split("|");
-        for(let i=0; i<sim.length; i++) { let p = positions[i].split(","); sim[i].col = parseInt(p[0]); sim[i].row = parseInt(p[1]); }
-        if(sim[targetIdx].col === GRID_SIZE - 2) return current.depth;
-
-        for(let i=0; i<sim.length; i++) {
-            let b = sim[i];
-            let moves = b.orientation === 'H' ? [[-1,0], [1,0]] : [[0,-1], [0,1]];
-            for(let m of moves) {
-                if(!checkGridCollision(b.col + m[0], b.row + m[1], b, sim)) {
-                    let newPositions = [...positions];
-                    newPositions[i] = (b.col + m[0]) + "," + (b.row + m[1]);
-                    let newState = newPositions.join("|");
-                    if(!visited.has(newState)) { visited.add(newState); queue.push({state: newState, depth: current.depth + 1}); }
-                }
-            }
-        }
-    }
-    return -1;
-}
-
-// --- GENERATION ---
-function startNewGame() {
-    isGenerating = true;
-    blocks = []; 
-    render(); 
-    setTimeout(() => {
-        let tempBlocks = [];
-        let startTime = Date.now();
-        while(true) {
-            if (Date.now() - startTime > 1500 && tempBlocks.length > 5) break; 
-            tempBlocks = [new Block(Math.random() < 0.5 ? 0 : 1, 2, 2, 'H', true)];
-            let targetCount = Math.floor(Math.random() * (19 - 14) + 14); 
-            let fails = 0;
-            while(tempBlocks.length < targetCount && fails < 50) {
-                let l = Math.random() < 0.6 ? 2 : 3;
-                let o = Math.random() < 0.5 ? 'H' : 'V';
-                let c, r;
-                if(o === 'H') { c = Math.floor(Math.random() * (GRID_SIZE - l + 1)); r = Math.floor(Math.random() * GRID_SIZE); } 
-                else { c = Math.floor(Math.random() * GRID_SIZE); r = Math.floor(Math.random() * (GRID_SIZE - l + 1)); }
-                if(r === 2 && o === 'H') { fails++; continue; }
-                let nb = new Block(c, r, l, o);
-                if(!checkGridCollision(c, r, nb, tempBlocks)) tempBlocks.push(nb); else fails++;
-            }
-            if(tempBlocks.length >= 13) {
-                let result = solveBoard(tempBlocks);
-                if(result >= 10) { blocks = tempBlocks; won = false; moves = 0; break; }
-            }
-        }
-        isGenerating = false;
-        render(); 
-    }, 50);
-}
-
-// --- RENDER LOOP ---
-function render() {
-    if(!document.getElementById('screen-game').classList.contains('active')) return;
-
-    ctx.fillStyle = COLOR_BG; ctx.fillRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
-    
-    let frameX = GRID_OFFSET_X - 20; let frameY = GRID_OFFSET_Y - 20;
-    let frameW = GRID_SIZE * TILE_SIZE + 40; let frameH = GRID_SIZE * TILE_SIZE + 40;
-    ctx.fillStyle = COLOR_FRAME; roundRect(frameX, frameY, frameW, frameH, 12); ctx.fill();
-    ctx.fillStyle = COLOR_WELL; roundRect(frameX+15, frameY+15, frameW-30, frameH-30, 4); ctx.fill();
-    ctx.fillStyle = "black"; ctx.fillRect(frameX + frameW - 25, GRID_OFFSET_Y + 2 * TILE_SIZE + 5, 30, TILE_SIZE - 10);
-
-    if(isGenerating || blocks.length === 0) {
-        ctx.fillStyle = COLOR_FRAME; ctx.font = "bold 30px Verdana"; ctx.textAlign = "center";
-        ctx.fillText("Generating...", SCREEN_WIDTH/2, SCREEN_HEIGHT/2); 
-        ctx.textAlign = "left"; 
-        requestAnimationFrame(render);
-        return;
-    }
-
-    for(let b of blocks) b.draw();
-
-    ctx.fillStyle = won ? "rgb(0, 150, 0)" : COLOR_TEXT;
-    ctx.font = "bold 24px Verdana"; ctx.textAlign = "center";
-    if(won) ctx.fillText("SOLVED!", SCREEN_WIDTH/2, 100);
-    else { ctx.font = "18px Verdana"; ctx.fillText(`Moves: ${moves}`, SCREEN_WIDTH/2, 100); }
-    ctx.textAlign = "left";
-    
-    requestAnimationFrame(render);
-}
-
-// --- INPUTS (FIXED: Uses getBoundingClientRect for correct coords) ---
-function getTouchPos(eX, eY) {
-    let rect = canvas.getBoundingClientRect();
-    return {
-        x: eX - rect.left,
-        y: eY - rect.top
-    };
-}
-
-function handleStart(rawX, rawY) {
-    if(won || isGenerating) return;
-    if(selected) return; // Prevent multi-touch overriding
-    
-    let pos = getTouchPos(rawX, rawY);
-    
-    for(let b of blocks) {
-        if(pos.x >= b.rect.x && pos.x <= b.rect.x + b.rect.w && 
-           pos.y >= b.rect.y && pos.y <= b.rect.y + b.rect.h) {
-            selected = b; 
-            dragOffset.x = b.rect.x - pos.x; 
-            dragOffset.y = b.rect.y - pos.y;
-            startP = {col: b.col, row: b.row}; 
-            break;
-        }
+    } catch(e) {
+        document.getElementById('recent-logs').innerHTML = "Offline Mode";
     }
 }
 
-function handleMove(rawX, rawY) {
-    if(!selected) return;
-    let pos = getTouchPos(rawX, rawY);
-    let sb = selected; 
-    let targetX = pos.x + dragOffset.x; 
-    let targetY = pos.y + dragOffset.y;
-
-    if (sb.orientation === 'H') {
-        let direction = targetX > sb.rect.x ? 1 : -1; 
-        let dist = Math.abs(targetX - sb.rect.x);
-        for(let i=0; i<dist; i++) {
-            let testRect = { ...sb.rect, x: sb.rect.x + direction };
-            if(!checkPixelCollision(testRect, sb, blocks)) sb.rect.x += direction; else break;
-        }
-    } else {
-        let direction = targetY > sb.rect.y ? 1 : -1; 
-        let dist = Math.abs(targetY - sb.rect.y);
-        for(let i=0; i<dist; i++) {
-            let testRect = { ...sb.rect, y: sb.rect.y + direction };
-            if(!checkPixelCollision(testRect, sb, blocks)) sb.rect.y += direction; else break;
-        }
-    }
-}
-
-function handleEnd() {
-    if(!selected) return;
-    let sb = selected;
-    let idealCol = Math.round((sb.rect.x - GRID_OFFSET_X) / TILE_SIZE);
-    let idealRow = Math.round((sb.rect.y - GRID_OFFSET_Y) / TILE_SIZE);
-    
-    if(sb.orientation === 'H') idealRow = sb.row; else idealCol = sb.col;
-    
-    if(!checkGridCollision(idealCol, idealRow, sb, blocks)) {
-        sb.col = idealCol; sb.row = idealRow;
-    }
-    sb.updatePixelPos();
-    
-    if(sb.col !== startP.col || sb.row !== startP.row) {
-        moves++;
-        if(sb.is_target && sb.col === 4) won = true;
-    }
-    selected = null;
-    activeTouchId = null;
-}
-
-// Touch Listeners
-canvas.addEventListener('mousedown', e => handleStart(e.clientX, e.clientY));
-canvas.addEventListener('mousemove', e => handleMove(e.clientX, e.clientY));
-canvas.addEventListener('mouseup', handleEnd);
-
-canvas.addEventListener('touchstart', e => { 
-    e.preventDefault(); 
-    if(activeTouchId !== null) return;
-    activeTouchId = e.changedTouches[0].identifier;
-    handleStart(e.changedTouches[0].clientX, e.changedTouches[0].clientY); 
-}, {passive: false});
-
-canvas.addEventListener('touchmove', e => { 
-    e.preventDefault(); 
-    for(let i=0; i<e.changedTouches.length; i++) {
-        if(e.changedTouches[i].identifier === activeTouchId) {
-            handleMove(e.changedTouches[i].clientX, e.changedTouches[i].clientY);
-        }
-    }
-}, {passive: false});
-
-canvas.addEventListener('touchend', e => {
-    for(let i=0; i<e.changedTouches.length; i++) {
-        if(e.changedTouches[i].identifier === activeTouchId) handleEnd();
-    }
-});
-
-// --- ADS & INIT ---
-async function recordAdReward() {
-    try {
-        const userId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 12345;
-        await fetch('/api/ads/confirm', { method:'POST', body:JSON.stringify({user_id:userId}) });
-        loadUserData(); 
-    } catch(e) {}
-}
-
-function watchAd() {
-    if (typeof show_10572322 === 'function') {
-        show_10572322().then(() => {
-            console.log("Ad success");
-            showScreen('screen-game');
-            startNewGame(); 
-            recordAdReward();
-        }).catch(e => {
-            console.log("Ad failed:", e);
-            showScreen('screen-game'); 
-            startNewGame();
-        });
-    } else {
-        console.log("Ad script missing");
-        showScreen('screen-game');
-        startNewGame();
-    }
-}
-
-// Initial Load
+// Init
 loadUserData();
+
 </script>
 </body>
 </html>
