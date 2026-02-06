@@ -3,404 +3,513 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Dense Wood Jump</title>
-
-    <script src='//libtl.com/sdk.js' data-zone='10572322' data-sdk='show_10572322'></script>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link href="https://fonts.googleapis.com/css?family=Gloria+Hallelujah" rel="stylesheet">
+    <title>Passive Income</title>
     
-    <style>
-        /* --- CORE UI & DASHBOARD --- */
-        body { margin: 0; padding: 0; background-color: rgb(250, 242, 230); font-family: 'Verdana', sans-serif; overflow: hidden; user-select: none; }
-        .screen { display: none; width: 100%; height: 100vh; position: absolute; top: 0; left: 0; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 20px; box-sizing: border-box; z-index: 10; }
-        .active { display: flex; }
-        h1 { color: rgb(80, 50, 30); margin-bottom: 5px; font-size: 24px; font-weight: bold; text-align: center; }
-        .card { background: rgb(250, 242, 230); border: 4px solid rgb(101, 67, 33); padding: 15px; border-radius: 12px; width: 85%; text-align: center; margin-bottom: 10px; color: rgb(80, 50, 30); box-shadow: 0 4px 0 rgba(101,67,33,0.2); }
-        .btn { background: rgb(101, 67, 33); color: white; padding: 15px 30px; border-radius: 8px; font-weight: bold; margin: 5px; cursor: pointer; border: 2px solid rgb(80, 50, 30); font-size: 16px; width: 80%; }
-        .btn-gold { background: #d4af37; color: black; border-color: #b8962e; }
-        .log-box { height: 80px; overflow-y: auto; font-size: 12px; text-align: left; background: rgba(101, 67, 33, 0.05); border: 2px solid rgb(101, 67, 33); border-radius: 8px; padding: 5px; margin-top: 10px; }
-        .lb-list { height: 60vh; overflow-y: auto; text-align: left; }
-        .lb-row { display: flex; justify-content: space-between; padding: 8px; border-bottom: 1px solid rgba(101,67,33,0.3); }
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src='//libtl.com/sdk.js' data-zone='10572322' data-sdk='show_10572322'></script>
 
-        /* --- DOODLE JUMP ENGINE STYLES --- */
-        #screen-game { background: url(https://i.imgur.com/Y0BMP.png) top left; font-family: 'Gloria Hallelujah', cursive; }
-        .game-container { height: 552px; width: 422px; position: relative; margin-top: 60px; overflow: hidden; scale: 0.9; /* Scale for mobile screens */}
-        canvas { display: block; border: 2px solid #5a5816; background: transparent; }
-        #scoreBoard { width: 100%; height: 50px; background: rgba(182, 200, 220, 0.7); position: absolute; top: 0; left: 0; z-index: 1; border-bottom: 2px solid #5a5816; display: none;}
-        #scoreBoard p { font-size: 20px; line-height: 47px; margin: 0 0 0 10px; }
-        #mainMenu, #gameOverMenu { height: 100%; width: 100%; text-align: center; position: absolute; top: 0; left: 0; z-index: 2; background: rgba(250, 242, 230, 0.9); display: flex; flex-direction: column; align-items: center; justify-content: center;}
-        #gameOverMenu { visibility: hidden; }
-        .jump-h1 { font-size: 40px; color: #5a5816; transform: rotate(-10deg); margin: 0; font-family: 'Gloria Hallelujah', cursive; }
-        .button-game { width: 150px; height: 40px; background: #5a5816; color: white; line-height: 40px; text-decoration: none; border-radius: 5px; margin: 10px; font-weight: bold; cursor: pointer;}
-        .info { font-size: 12px; color: green; margin-top: 10px; }
-        img#sprite { display: none; }
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-color: #0f0f0f;
+            --text-color: #ffffff;
+            --accent-color: #00ffa3; /* Neon Green */
+            --secondary-text: #888;
+            --card-bg: #1a1a1a;
+            --bar-bg: #333;
+            --transition-speed: 0.6s;
+            --easing: cubic-bezier(0.22, 1, 0.36, 1); /* Fluid easing */
+        }
+
+        [data-theme="light"] {
+            --bg-color: #f4f4f4;
+            --text-color: #111;
+            --accent-color: #00b874;
+            --secondary-text: #666;
+            --card-bg: #fff;
+            --bar-bg: #e0e0e0;
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            margin: 0; padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            transition: background-color var(--transition-speed) var(--easing), color var(--transition-speed);
+            display: flex; justify-content: center; align-items: center;
+            height: 100vh;
+        }
+
+        /* --- UI CONTAINER --- */
+        #app-container {
+            width: 100%; height: 100%;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* --- SCREENS --- */
+        .screen {
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            padding: 20px;
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.8s var(--easing), transform 0.8s var(--easing);
+        }
+
+        .screen.active {
+            opacity: 1; pointer-events: auto;
+            transform: scale(1);
+        }
+
+        .screen.exit {
+            opacity: 0; transform: scale(0.95);
+        }
+
+        /* --- HOME SCREEN ELEMENTS --- */
+        .mode-toggle {
+            position: absolute; top: 20px; right: 20px;
+            font-size: 24px; cursor: pointer;
+            opacity: 0.5; transition: opacity 0.3s;
+        }
+        .mode-toggle:hover { opacity: 1; }
+
+        h1 {
+            font-weight: 800; font-size: 42px; margin-bottom: 5px;
+            letter-spacing: -1px;
+            background: linear-gradient(135deg, var(--text-color), var(--secondary-text));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: slideUp 1s var(--easing) forwards;
+        }
+
+        .subtitle {
+            font-size: 14px; color: var(--secondary-text); margin-bottom: 20px;
+            font-weight: 300; letter-spacing: 1px;
+            animation: slideUp 1.1s var(--easing) forwards;
+        }
+
+        /* Progress Bar */
+        .progress-container {
+            width: 100%; max-width: 280px;
+            margin-bottom: 40px;
+            animation: slideUp 1.2s var(--easing) forwards;
+        }
         
-        .exit-overlay { position: absolute; top: 10px; left: 10px; z-index: 100; }
+        .progress-track {
+            height: 4px; width: 100%;
+            background: var(--bar-bg);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%; width: 0%;
+            background: var(--accent-color);
+            border-radius: 10px;
+            transition: width 1s var(--easing);
+            box-shadow: 0 0 10px var(--accent-color);
+        }
+
+        /* Start Button */
+        .btn-start {
+            background: var(--text-color);
+            color: var(--bg-color);
+            border: none;
+            padding: 18px 50px;
+            font-size: 18px; font-weight: 700;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            animation: slideUp 1.3s var(--easing) forwards;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .btn-start:active { transform: scale(0.96); }
+
+        .reward-info {
+            margin-top: 30px;
+            color: var(--accent-color);
+            font-size: 12px;
+            text-align: center;
+            max-width: 250px;
+            line-height: 1.5;
+            animation: fadeIn 2s ease forwards;
+        }
+
+        /* --- GAME SCREEN --- */
+        #game-wrapper {
+            width: 100%; height: 100%;
+            max-width: 450px;
+            position: relative;
+            background: #fff; /* Game needs light bg or transparent */
+            box-shadow: 0 0 50px rgba(0,0,0,0.5);
+        }
+        
+        canvas { display: block; width: 100%; height: 100%; }
+
+        /* Game Over Modal */
+        #game-over-ui {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.5s;
+            color: #fff;
+        }
+        #game-over-ui.visible { opacity: 1; pointer-events: auto; }
+
+        .go-title { font-size: 40px; font-weight: 800; color: #ff4757; margin-bottom: 10px; }
+        .go-score { font-size: 20px; margin-bottom: 30px; color: #fff; }
+        
+        .btn-revive {
+            background: var(--accent-color); color: #000;
+            padding: 15px 30px; border-radius: 12px;
+            font-weight: bold; border: none; cursor: pointer;
+            margin-bottom: 10px; width: 200px;
+        }
+        .btn-home {
+            background: transparent; color: #888;
+            border: 2px solid #555; padding: 12px;
+            border-radius: 12px; font-weight: bold; cursor: pointer;
+            width: 200px;
+        }
+
+        /* ANIMATIONS */
+        @keyframes slideUp { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
     </style>
 </head>
-<body>
+<body data-theme="dark">
+
+<div id="app-container">
 
     <div id="screen-home" class="screen active">
-        <h1>Dense Wood Jump</h1>
-        <div class="card">
-            <h3>🏆 Weekly Prize Pool</h3>
-            <h2 id="pool-display">₹0.00</h2>
-            <div class="log-box" id="activity-log"><div class="log-item">Loading...</div></div>
+        <div class="mode-toggle" onclick="toggleTheme()">◑</div>
+
+        <h1>Passive Income</h1>
+        <div class="subtitle">
+            <span id="ads-count">0</span>/100 ads watched
         </div>
-        <div class="card" style="padding: 10px;">
-            <div style="display: flex; justify-content: space-around;">
-                <div><span style="font-size:10px;">YOUR RANK</span><br><b style="font-size:20px;" id="my-rank">-</b></div>
-                <div><span style="font-size:10px;">POINTS</span><br><b style="font-size:20px;" id="my-score">0</b></div>
+
+        <div class="progress-container">
+            <div class="progress-track">
+                <div class="progress-fill" id="progress-bar"></div>
             </div>
         </div>
-        <button class="btn" onclick="startGame()">🚀 Play Game</button>
-        <button class="btn btn-gold" onclick="showScreen('screen-leaderboard')">🏅 Leaderboard</button>
-    </div>
 
-    <div id="screen-leaderboard" class="screen">
-        <h1>Top Players</h1>
-        <div class="card lb-list" id="lb-content"><div>Loading...</div></div>
-        <button class="btn" onclick="showScreen('screen-home')">⬅ Back Home</button>
+        <button class="btn-start" onclick="transitionToGame()">Start ➡️</button>
+
+        <div class="reward-info">
+            * Person with most points today will be awarded ₹50
+        </div>
     </div>
 
     <div id="screen-game" class="screen">
-        <div class="exit-overlay">
-            <button class="btn" style="width: auto; padding: 5px 15px;" onclick="exitGame()">❌ Exit</button>
-        </div>
-        
-        <div class="game-container">
-            <div id="scoreBoard">
-                <p id="score">0</p>
-            </div>
-
+        <div id="game-wrapper">
             <canvas id="canvas"></canvas>
-
-            <div id="mainMenu">
-                <h1 class="jump-h1">doodle jump</h1>
-                <p class="info">Use Tilt or Touch sides to move</p>
-                <div class="button-game" onclick="initGame()">Start</div>
-            </div>
             
-            <div id="gameOverMenu">
-                <h1 class="jump-h1">game over!</h1>
-                <h3 id="go_score">you scored 0 points</h3>
-                <div class="button-game" onclick="watchAdAndRestart()">Watch Ad & Restart</div>
-                <div class="button-game" style="background: #888;" onclick="exitGame()">Main Menu</div>
+            <div id="game-over-ui">
+                <div class="go-title">GAME OVER</div>
+                <div class="go-score">Score: <span id="final-score">0</span></div>
+                <button class="btn-revive" onclick="watchAdAndRevive()">📺 Watch Ad & Revive</button>
+                <button class="btn-home" onclick="goHome()">🏠 Home</button>
             </div>
         </div>
     </div>
 
-    <img id="sprite" src="https://i.imgur.com/2WEhF.png"/>
+</div>
+
+<div style="display:none;">
+    <img id="sprite" src="https://i.imgur.com/2WEhF.png" crossorigin="anonymous">
+</div>
 
 <script>
-// --- TELEGRAM & UI LOGIC ---
-function showScreen(id) {
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    document.getElementById(id).classList.add('active');
-    if(id === 'screen-home') loadUserData();
-}
+    // --- 1. APP STATE & THEME ---
+    let state = {
+        adsWatched: 0,
+        theme: 'dark',
+        userId: 'Guest'
+    };
 
-function exitGame() {
-    stopGameLoop();
-    showScreen('screen-home');
-}
+    // Load from LocalStorage
+    const savedData = localStorage.getItem('passiveIncomeData');
+    if (savedData) {
+        state = { ...state, ...JSON.parse(savedData) };
+        updateHomeUI();
+    }
 
-function startGame() {
-    showScreen('screen-game');
-    reset();
-}
+    // Telegram ID
+    if (window.Telegram?.WebApp) {
+        const user = window.Telegram.WebApp.initDataUnsafe.user;
+        if (user) state.userId = user.id;
+    }
 
-async function loadUserData() {
-    try {
-        const userId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 12345;
-        let res = await fetch(`/api/user/${userId}`);
-        if(res.ok) {
-            let d = await res.json();
-            document.getElementById('pool-display').innerText = "₹" + d.global_pool.toFixed(2);
-            document.getElementById('my-rank').innerText = "#" + d.rank;
-            document.getElementById('my-score').innerText = d.ads_watched;
-            let logHTML = ""; d.recent_logs.forEach(l => logHTML += `<div class="log-item">🔔 ${l}</div>`);
-            document.getElementById('activity-log').innerHTML = logHTML || "<div class='log-item'>No recent activity</div>";
-            let lbHTML = ""; d.top_players.forEach((p, i) => {
-                let icon = i===0 ? "🥇" : (i===1 ? "🥈" : (i===2 ? "🥉" : "👤"));
-                lbHTML += `<div class="lb-row"><span>${icon} ${p.name}</span><b>${p.ads_watched}</b></div>`;
+    function toggleTheme() {
+        state.theme = state.theme === 'dark' ? 'light' : 'dark';
+        document.body.setAttribute('data-theme', state.theme);
+        saveData();
+    }
+    // Set initial theme
+    document.body.setAttribute('data-theme', state.theme);
+
+    function updateHomeUI() {
+        document.getElementById('ads-count').innerText = state.adsWatched;
+        let pct = (state.adsWatched / 100) * 100;
+        if (pct > 100) pct = 100;
+        document.getElementById('progress-bar').style.width = pct + "%";
+    }
+
+    function saveData() {
+        localStorage.setItem('passiveIncomeData', JSON.stringify(state));
+        // Mock Server Sync
+        try {
+            // Replace with your actual server.py endpoint
+            // fetch('https://your-server.com/api/sync', { method: 'POST', body: JSON.stringify(state) });
+        } catch(e) {}
+    }
+
+    // --- 2. TRANSITIONS ---
+    function transitionToGame() {
+        const home = document.getElementById('screen-home');
+        const game = document.getElementById('screen-game');
+        
+        home.classList.add('exit');
+        home.classList.remove('active');
+
+        setTimeout(() => {
+            game.classList.add('active');
+            initGame(); // Start the game engine
+        }, 600);
+    }
+
+    function goHome() {
+        const home = document.getElementById('screen-home');
+        const game = document.getElementById('screen-game');
+        const ui = document.getElementById('game-over-ui');
+
+        ui.classList.remove('visible');
+        game.classList.remove('active');
+        
+        updateHomeUI(); // Refresh numbers
+        
+        setTimeout(() => {
+            home.classList.remove('exit');
+            home.classList.add('active');
+        }, 100);
+        
+        player.isDead = true; // Ensure game stops
+    }
+
+    // --- 3. AD INTEGRATION ---
+    function watchAdAndRevive() {
+        if (typeof show_10572322 === 'function') {
+            show_10572322().then(() => {
+                // Success
+                state.adsWatched++;
+                saveData();
+                reviveGame();
+                alert('You have seen an ad! +1 to Progress');
+            }).catch(e => {
+                // Error / AdBlock Fallback
+                console.log("Ad Error", e);
+                state.adsWatched++; // Give credit anyway for testing
+                saveData();
+                reviveGame();
             });
-            document.getElementById('lb-content').innerHTML = lbHTML || "<div>No players yet</div>";
+        } else {
+            console.warn("Monetag SDK not ready. Reviving for testing.");
+            state.adsWatched++;
+            saveData();
+            reviveGame();
         }
-    } catch(e) {}
-}
-
-// --- JUMP GAME ENGINE ---
-window.requestAnimFrame = (function() {
-    return window.requestAnimationFrame || window.webkitRequestAnimationFrame || window.mozRequestAnimationFrame || window.oRequestAnimationFrame || window.msRequestAnimationFrame ||
-    function(callback) { window.setTimeout(callback, 1000 / 60); };
-})();
-
-var canvas = document.getElementById('canvas'), ctx = canvas.getContext('2d');
-var width = 422, height = 552;
-canvas.width = width; canvas.height = height;
-
-var platforms = [], image = document.getElementById("sprite"),
-    player, platformCount = 10, position = 0, gravity = 0.2,
-    animloop, flag = 0, broken = 0, dir, score = 0, firstRun = true, isLooping = false;
-
-// Base object
-var Base = function() {
-    this.height = 5; this.width = width;
-    this.cx = 0; this.cy = 614; this.cwidth = 100; this.cheight = 5;
-    this.x = 0; this.y = height - this.height;
-    this.draw = function() { try { ctx.drawImage(image, this.cx, this.cy, this.cwidth, this.cheight, this.x, this.y, this.width, this.height); } catch (e) {} };
-};
-
-// Player object
-var Player = function() {
-    this.vy = 11; this.vx = 0;
-    this.isMovingLeft = false; this.isMovingRight = false; this.isDead = false;
-    this.width = 55; this.height = 40;
-    this.cx = 0; this.cy = 0; this.cwidth = 110; this.cheight = 80;
-    this.dir = "left";
-    this.x = width / 2 - this.width / 2; this.y = height;
-    this.draw = function() {
-        try {
-            if (this.dir == "right") this.cy = 121;
-            else if (this.dir == "left") this.cy = 201;
-            else if (this.dir == "right_land") this.cy = 289;
-            else if (this.dir == "left_land") this.cy = 371;
-            ctx.drawImage(image, this.cx, this.cy, this.cwidth, this.cheight, this.x, this.y, this.width, this.height);
-        } catch (e) {}
-    };
-    this.jump = function() { this.vy = -8; };
-    this.jumpHigh = function() { this.vy = -16; };
-};
-
-function Platform() {
-    this.width = 70; this.height = 17;
-    this.x = Math.random() * (width - this.width);
-    this.y = position;
-    position += (height / platformCount);
-    this.flag = 0; this.state = 0; this.cx = 0; this.cy = 0; this.cwidth = 105; this.cheight = 31;
-
-    this.draw = function() {
-        try {
-            if (this.type == 1) this.cy = 0;
-            else if (this.type == 2) this.cy = 61;
-            else if (this.type == 3 && this.flag === 0) this.cy = 31;
-            else if (this.type == 3 && this.flag == 1) this.cy = 1000;
-            else if (this.type == 4 && this.state === 0) this.cy = 90;
-            ctx.drawImage(image, this.cx, this.cy, this.cwidth, this.cheight, this.x, this.y, this.width, this.height);
-        } catch (e) {}
-    };
-
-    if (score >= 5000) this.types = [2, 3, 3, 3, 4, 4, 4, 4];
-    else if (score >= 2000) this.types = [2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4];
-    else if (score >= 1000) this.types = [2, 2, 2, 3, 3, 3, 3, 3];
-    else if (score >= 500) this.types = [1, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3];
-    else if (score >= 100) this.types = [1, 1, 1, 1, 2, 2];
-    else this.types = [1];
-
-    this.type = this.types[Math.floor(Math.random() * this.types.length)];
-    this.vx = 1;
-}
-
-var Spring = function() {
-    this.x = 0; this.y = 0; this.width = 26; this.height = 30;
-    this.cx = 0; this.cy = 0; this.cwidth = 45; this.cheight = 53; this.state = 0;
-    this.draw = function() {
-        try {
-            this.cy = (this.state === 0) ? 445 : 501;
-            ctx.drawImage(image, this.cx, this.cy, this.cwidth, this.cheight, this.x, this.y, this.width, this.height);
-        } catch (e) {}
-    };
-};
-
-// Global Game Instances
-var base = new Base();
-player = new Player();
-var springObj = new Spring();
-platforms = [];
-
-function initGame() {
-    hideMenu();
-    showScore();
-    isLooping = true;
-    dir = "left";
-    gameLoop();
-}
-
-function gameLoop() {
-    if(!isLooping) return;
-    update();
-    requestAnimFrame(gameLoop);
-}
-
-function stopGameLoop() {
-    isLooping = false;
-}
-
-function update() {
-    ctx.clearRect(0, 0, width, height);
-    
-    // Platform Logic
-    platforms.forEach(function(p, i) {
-        if (p.type == 2) {
-            if (p.x < 0 || p.x + p.width > width) p.vx *= -1;
-            p.x += p.vx;
-        }
-        p.draw();
-    });
-
-    // Spring Logic
-    var s = springObj;
-    var p0 = platforms[0];
-    if (p0.type == 1 || p0.type == 2) {
-        s.x = p0.x + p0.width / 2 - s.width / 2;
-        s.y = p0.y - p0.height - 10;
-        if (s.y > height / 1.1) s.state = 0;
-        s.draw();
     }
 
-    // Player Logic
-    if (dir == "left") {
-        player.dir = "left";
-        if (player.vy < -7 && player.vy > -15) player.dir = "left_land";
-    } else {
-        player.dir = "right";
-        if (player.vy < -7 && player.vy > -15) player.dir = "right_land";
+    // --- 4. GAME ENGINE (DOODLE JUMP) ---
+    // Minified logic adapted for this UI
+    
+    var canvas = document.getElementById('canvas'),
+        ctx = canvas.getContext('2d');
+    var width = 360, height = 640;
+    
+    // Resize handling
+    function resizeCanvas() {
+        const wrapper = document.getElementById('game-wrapper');
+        canvas.width = wrapper.clientWidth;
+        canvas.height = wrapper.clientHeight;
+        width = canvas.width;
+        height = canvas.height;
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    var platforms = [], image = document.getElementById("sprite"),
+        player, platformCount = 10, position = 0, gravity = 0.2,
+        animloop, flag = 0, broken = 0, dir, score = 0, firstRun = true;
+
+    var Base = function() {
+        this.height = 5; this.width = width;
+        this.cx = 0; this.cy = 614; this.cwidth = 100; this.cheight = 5;
+        this.x = 0; this.y = height - this.height;
+        this.draw = function() { try { ctx.drawImage(image, this.cx, this.cy, this.cwidth, this.cheight, this.x, this.y, this.width, this.height); } catch (e) {} };
+    };
+    var base = new Base();
+
+    var Player = function() {
+        this.vy = 11; this.vx = 0;
+        this.isMovingLeft = false; this.isMovingRight = false;
+        this.isDead = false;
+        this.width = 55; this.height = 40;
+        this.cx = 0; this.cy = 0; this.cwidth = 110; this.cheight = 80;
+        this.dir = "left";
+        this.x = width / 2 - this.width / 2; this.y = height;
+        this.draw = function() {
+            try {
+                if (this.dir == "right") this.cy = 121; else if (this.dir == "left") this.cy = 201;
+                ctx.drawImage(image, this.cx, this.cy, this.cwidth, this.cheight, this.x, this.y, this.width, this.height);
+            } catch (e) {}
+        };
+        this.jump = function() { this.vy = -8; };
+    };
+    player = new Player();
+
+    function Platform() {
+        this.width = 70; this.height = 17;
+        this.x = Math.random() * (width - this.width);
+        this.y = position;
+        position += (height / platformCount);
+        this.flag = 0; this.state = 0;
+        this.cx = 0; this.cy = 0; this.cwidth = 105; this.cheight = 31;
+        this.draw = function() {
+            try {
+                if (this.type == 1) this.cy = 0; else if (this.type == 2) this.cy = 61;
+                ctx.drawImage(image, this.cx, this.cy, this.cwidth, this.cheight, this.x, this.y, this.width, this.height);
+            } catch (e) {}
+        };
+        this.type = 1; // Simplify types for this version
+        this.vx = 1;
     }
 
-    if (player.isMovingLeft) { player.x += player.vx; player.vx -= 0.15; }
-    else { player.x += player.vx; if (player.vx < 0) player.vx += 0.1; }
-    
-    if (player.isMovingRight) { player.x += player.vx; player.vx += 0.15; }
-    else { player.x += player.vx; if (player.vx > 0) player.vx -= 0.1; }
+    function initGame() {
+        resizeCanvas();
+        resetVars();
+        animloop();
+    }
 
-    if(player.vx > 8) player.vx = 8; else if(player.vx < -8) player.vx = -8;
-    if ((player.y + player.height) > base.y && base.y < height) player.jump();
-    if (base.y > height && (player.y + player.height) > height && player.isDead != "lol") player.isDead = true;
-    if (player.x > width) player.x = 0 - player.width; else if (player.x < 0 - player.width) player.x = width;
+    function resetVars() {
+        player = new Player();
+        base = new Base();
+        platforms = [];
+        position = 0; score = 0;
+        for (var i = 0; i < platformCount; i++) platforms.push(new Platform());
+        document.getElementById('game-over-ui').classList.remove('visible');
+    }
 
-    if (player.y >= (height / 2) - (player.height / 2)) {
-        player.y += player.vy;
-        player.vy += gravity;
-    } else {
-        platforms.forEach(function(p, i) {
-            if (player.vy < 0) p.y -= player.vy;
-            if (p.y > height) {
-                platforms[i] = new Platform();
-                platforms[i].y = p.y - height;
+    function reviveGame() {
+        // Reset player to safe spot, keep score
+        player.y = height / 2;
+        player.vy = 0;
+        player.x = width / 2;
+        player.isDead = false;
+        // Move base under player
+        base.y = height + 100; // Hide base
+        // Clear nearby platforms
+        platforms.forEach(p => { if (p.y > player.y && p.y < player.y + 200) p.y = -100; });
+        platforms.push(new Platform()); platforms[platforms.length-1].y = player.y + 100; platforms[platforms.length-1].x = player.x;
+
+        document.getElementById('game-over-ui').classList.remove('visible');
+        animloop();
+    }
+
+    function gameOver() {
+        player.isDead = true;
+        document.getElementById('final-score').innerText = score;
+        document.getElementById('game-over-ui').classList.add('visible');
+    }
+
+    function update() {
+        ctx.clearRect(0, 0, width, height);
+        
+        // Input Physics
+        if (player.isMovingLeft) { player.x += player.vx; player.vx -= 0.15; } 
+        else { player.x += player.vx; if (player.vx < 0) player.vx += 0.1; }
+        if (player.isMovingRight) { player.x += player.vx; player.vx += 0.15; } 
+        else { player.x += player.vx; if (player.vx > 0) player.vx -= 0.1; }
+
+        // Wall Loop
+        if (player.x > width) player.x = 0 - player.width;
+        else if (player.x < 0 - player.width) player.x = width;
+
+        // Gravity / Jump
+        if ((player.y + player.height) > base.y && base.y < height) player.jump();
+        
+        // Death
+        if (player.y > height && !player.isDead) { gameOver(); return; }
+
+        // Camera Scroll
+        if (player.y >= (height / 2) - (player.height / 2)) {
+            player.y += player.vy;
+            player.vy += gravity;
+        } else {
+            platforms.forEach(function(p, i) {
+                if (player.vy < 0) p.y -= player.vy;
+                if (p.y > height) {
+                    platforms[i] = new Platform();
+                    platforms[i].y = p.y - height;
+                }
+            });
+            base.y -= player.vy;
+            player.vy += gravity;
+            if (player.vy >= 0) { player.y += player.vy; player.vy += gravity; }
+            score++;
+        }
+
+        // Draw
+        platforms.forEach(p => p.draw());
+        player.draw();
+        base.draw();
+
+        // Platform Collision
+        platforms.forEach(function(p) {
+            if (player.vy > 0 && 
+               (player.x + 15 < p.x + p.width) && 
+               (player.x + player.width - 15 > p.x) && 
+               (player.y + player.height > p.y) && 
+               (player.y + player.height < p.y + p.height)) {
+                player.jump();
             }
         });
-        base.y -= player.vy;
-
-        // --- BUG FIX START ---
-        // Score only increases based on distance traveled upwards
-        if (player.vy < 0) {
-            score += Math.floor(-player.vy);
-        }
-        // --- BUG FIX END ---
-
-        player.vy += gravity;
-        if (player.vy >= 0) { player.y += player.vy; player.vy += gravity; }
     }
 
-    // Collision
-    platforms.forEach(function(p, i) {
-        if (player.vy > 0 && p.state === 0 && (player.x + 15 < p.x + p.width) && (player.x + player.width - 15 > p.x) && (player.y + player.height > p.y) && (player.y + player.height < p.y + p.height)) {
-            if (p.type == 3 && p.flag === 0) { p.flag = 1; return; }
-            else if (p.type == 4) { player.jump(); p.state = 1; }
-            else if (p.flag == 1) return;
-            else player.jump();
+    animloop = function() {
+        if (!player.isDead && document.getElementById('screen-game').classList.contains('active')) {
+            update();
+            requestAnimationFrame(animloop);
         }
+    };
+
+    // CONTROLS (Touch + Key)
+    document.onkeydown = function(e) {
+        if (e.keyCode == 37) { player.dir = "left"; player.isMovingLeft = true; }
+        else if (e.keyCode == 39) { player.dir = "right"; player.isMovingRight = true; }
+    };
+    document.onkeyup = function(e) { player.isMovingLeft = false; player.isMovingRight = false; };
+    
+    // Touch
+    canvas.addEventListener('touchstart', function(e) {
+        e.preventDefault();
+        var rect = canvas.getBoundingClientRect();
+        var x = e.touches[0].clientX - rect.left;
+        if (x < width / 2) { player.dir = "left"; player.isMovingLeft = true; }
+        else { player.dir = "right"; player.isMovingRight = true; }
     });
+    canvas.addEventListener('touchend', function() { player.isMovingLeft = false; player.isMovingRight = false; });
 
-    if (player.vy > 0 && s.state === 0 && (player.x + 15 < s.x + s.width) && (player.x + player.width - 15 > s.x) && (player.y + player.height > s.y) && (player.y + player.height < s.y + s.height)) {
-        s.state = 1; player.jumpHigh();
-    }
-
-    player.draw();
-    base.draw();
-    document.getElementById("score").innerHTML = score;
-
-    if (player.isDead === true) gameOver();
-}
-
-function gameOver() {
-    stopGameLoop();
-    showGoMenu();
-    hideScore();
-    player.isDead = "lol";
-}
-
-function watchAdAndRestart() {
-    if (typeof show_10572322 === 'function') {
-        show_10572322().then(() => {
-            recordAdReward();
-            reset();
-            initGame();
-        }).catch(() => {
-            reset();
-            initGame();
-        });
-    } else {
-        reset();
-        initGame();
-    }
-}
-
-async function recordAdReward() {
-    try {
-        const userId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 12345;
-        await fetch('/api/ads/confirm', { method:'POST', body:JSON.stringify({user_id:userId, score: score}) });
-        loadUserData(); 
-    } catch(e) {}
-}
-
-function reset() {
-    hideGoMenu();
-    showScore();
-    player = new Player();
-    base = new Base();
-    springObj = new Spring();
-    platforms = [];
-    score = 0;
-    position = 0;
-    for (var i = 0; i < platformCount; i++) platforms.push(new Platform());
-}
-
-// UI Toggles
-function hideMenu() { document.getElementById("mainMenu").style.display = "none"; }
-function showGoMenu() {
-    var menu = document.getElementById("gameOverMenu");
-    menu.style.visibility = "visible";
-    document.getElementById("go_score").innerHTML = "You scored " + score + " points!";
-}
-function hideGoMenu() { document.getElementById("gameOverMenu").style.visibility = "hidden"; }
-function showScore() { document.getElementById("scoreBoard").style.display = "block"; }
-function hideScore() { document.getElementById("scoreBoard").style.display = "none"; }
-
-// Controls
-document.onkeydown = function(e) {
-    if (e.keyCode == 37) { dir = "left"; player.isMovingLeft = true; }
-    else if (e.keyCode == 39) { dir = "right"; player.isMovingRight = true; }
-};
-document.onkeyup = function(e) {
-    if (e.keyCode == 37) player.isMovingLeft = false;
-    else if (e.keyCode == 39) player.isMovingRight = false;
-};
-
-// Touch Controls for Mobile
-canvas.addEventListener('touchstart', function(e) {
-    var touchX = e.touches[0].pageX;
-    if (touchX < window.innerWidth / 2) { dir = "left"; player.isMovingLeft = true; }
-    else { dir = "right"; player.isMovingRight = true; }
-});
-canvas.addEventListener('touchend', function() {
-    player.isMovingLeft = false;
-    player.isMovingRight = false;
-});
-
-// Initial Load
-loadUserData();
 </script>
 </body>
 </html>
