@@ -3,51 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Passive Income</title>
+    <title>Squad Miner</title>
     
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src='//libtl.com/sdk.js' data-zone='10572322' data-sdk='show_10572322'></script>
 
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 
     <style>
         :root {
-            --bg-color: #0f0f0f;
-            --text-color: #ffffff;
-            --accent-color: #00ffa3; /* Neon Green */
-            --secondary-text: #888;
-            --card-bg: #1a1a1a;
-            --bar-bg: #333;
-            --transition-speed: 0.6s;
-            --easing: cubic-bezier(0.22, 1, 0.36, 1); /* Fluid easing */
-        }
-
-        [data-theme="light"] {
-            --bg-color: #f4f4f4;
-            --text-color: #111;
-            --accent-color: #00b874;
-            --secondary-text: #666;
-            --card-bg: #fff;
-            --bar-bg: #e0e0e0;
+            --bg-dark: #0f172a;
+            --card-bg: #1e293b;
+            --accent-green: #4ade80;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --bounce: cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
         body {
             margin: 0; padding: 0;
-            background-color: var(--bg-color);
-            color: var(--text-color);
+            background-color: var(--bg-dark);
+            color: var(--text-primary);
             font-family: 'Inter', sans-serif;
             overflow: hidden;
-            transition: background-color var(--transition-speed) var(--easing), color var(--transition-speed);
             display: flex; justify-content: center; align-items: center;
             height: 100vh;
         }
 
-        /* --- UI CONTAINER --- */
         #app-container {
             width: 100%; height: 100%;
             position: relative;
+            max-width: 450px; /* Mobile width cap */
+            background: var(--bg-dark);
             overflow: hidden;
         }
 
@@ -56,459 +45,355 @@
             position: absolute; top: 0; left: 0;
             width: 100%; height: 100%;
             display: flex; flex-direction: column;
-            align-items: center; justify-content: center;
             padding: 20px;
+            transition: transform 0.4s ease, opacity 0.4s ease;
             opacity: 0; pointer-events: none;
-            transition: opacity 0.8s var(--easing), transform 0.8s var(--easing);
+            overflow-y: auto;
         }
 
         .screen.active {
             opacity: 1; pointer-events: auto;
-            transform: scale(1);
+            transform: translateX(0);
         }
 
-        .screen.exit {
-            opacity: 0; transform: scale(0.95);
-        }
+        .screen.hidden-left { transform: translateX(-50px); opacity: 0; }
+        .screen.hidden-right { transform: translateX(50px); opacity: 0; }
 
-        /* --- HOME SCREEN ELEMENTS --- */
-        .mode-toggle {
-            position: absolute; top: 20px; right: 20px;
-            font-size: 24px; cursor: pointer;
-            opacity: 0.5; transition: opacity 0.3s;
-        }
-        .mode-toggle:hover { opacity: 1; }
-
-        h1 {
-            font-weight: 800; font-size: 42px; margin-bottom: 5px;
-            letter-spacing: -1px;
-            background: linear-gradient(135deg, var(--text-color), var(--secondary-text));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            animation: slideUp 1s var(--easing) forwards;
-        }
-
-        .subtitle {
-            font-size: 14px; color: var(--secondary-text); margin-bottom: 20px;
-            font-weight: 300; letter-spacing: 1px;
-            animation: slideUp 1.1s var(--easing) forwards;
-        }
-
-        /* Progress Bar */
-        .progress-container {
-            width: 100%; max-width: 280px;
-            margin-bottom: 40px;
-            animation: slideUp 1.2s var(--easing) forwards;
-        }
-        
-        .progress-track {
-            height: 4px; width: 100%;
-            background: var(--bar-bg);
-            border-radius: 10px;
-            overflow: hidden;
-        }
-        
-        .progress-fill {
-            height: 100%; width: 0%;
-            background: var(--accent-color);
-            border-radius: 10px;
-            transition: width 1s var(--easing);
-            box-shadow: 0 0 10px var(--accent-color);
-        }
-
-        /* Start Button */
-        .btn-start {
-            background: var(--text-color);
-            color: var(--bg-color);
-            border: none;
-            padding: 18px 50px;
-            font-size: 18px; font-weight: 700;
-            border-radius: 50px;
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-            animation: slideUp 1.3s var(--easing) forwards;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-        }
-        .btn-start:active { transform: scale(0.96); }
-
-        .reward-info {
-            margin-top: 30px;
-            color: var(--accent-color);
-            font-size: 12px;
+        /* --- HOME UI --- */
+        .squad-header {
+            background: linear-gradient(135deg, #16a34a, #0d9488);
+            padding: 20px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(22, 163, 74, 0.3);
+            margin-bottom: 20px;
             text-align: center;
-            max-width: 250px;
-            line-height: 1.5;
-            animation: fadeIn 2s ease forwards;
         }
 
-        /* --- GAME SCREEN --- */
-        #game-wrapper {
-            width: 100%; height: 100%;
-            max-width: 450px;
+        .squad-title { font-size: 14px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.9; }
+        .squad-name { font-size: 32px; font-weight: 800; margin: 5px 0; }
+        .squad-timer { font-size: 12px; font-family: 'JetBrains Mono', monospace; background: rgba(0,0,0,0.3); padding: 4px 8px; border-radius: 4px; display: inline-block; }
+
+        .mission-card {
+            background: var(--card-bg);
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 20px; border-radius: 16px;
+            margin-bottom: 20px;
+        }
+        
+        .mission-progress {
+            height: 6px; width: 100%; background: #334155;
+            border-radius: 10px; margin-top: 10px; overflow: hidden;
+        }
+        .mission-bar { height: 100%; background: var(--accent-green); width: 0%; transition: width 0.5s ease; }
+
+        /* LOGS BOX */
+        .logs-panel {
+            flex: 1;
+            background: #000;
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 10px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: #22c55e;
+            overflow-y: hidden;
+            display: flex; flex-direction: column; justify-content: flex-end;
+            margin-bottom: 20px;
             position: relative;
-            background: #fff; /* Game needs light bg or transparent */
-            box-shadow: 0 0 50px rgba(0,0,0,0.5);
         }
-        
-        canvas { display: block; width: 100%; height: 100%; }
+        .logs-panel::before {
+            content: "SQUAD_ACTIVITY_LOG";
+            position: absolute; top: 0; left: 0;
+            background: #22c55e; color: #000;
+            padding: 2px 6px; font-weight: bold;
+        }
+        .log-line { margin: 2px 0; opacity: 0.8; }
 
-        /* Game Over Modal */
-        #game-over-ui {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.85);
-            display: flex; flex-direction: column;
-            align-items: center; justify-content: center;
-            opacity: 0; pointer-events: none;
-            transition: opacity 0.5s;
-            color: #fff;
-        }
-        #game-over-ui.visible { opacity: 1; pointer-events: auto; }
-
-        .go-title { font-size: 40px; font-weight: 800; color: #ff4757; margin-bottom: 10px; }
-        .go-score { font-size: 20px; margin-bottom: 30px; color: #fff; }
-        
-        .btn-revive {
-            background: var(--accent-color); color: #000;
-            padding: 15px 30px; border-radius: 12px;
-            font-weight: bold; border: none; cursor: pointer;
-            margin-bottom: 10px; width: 200px;
-        }
-        .btn-home {
-            background: transparent; color: #888;
-            border: 2px solid #555; padding: 12px;
-            border-radius: 12px; font-weight: bold; cursor: pointer;
-            width: 200px;
+        .btn-play {
+            width: 100%;
+            padding: 18px;
+            background: var(--accent-green);
+            color: #064e3b;
+            font-size: 18px; font-weight: 800;
+            border: none; border-radius: 16px;
+            cursor: pointer;
+            box-shadow: 0 0 20px rgba(74, 222, 128, 0.4);
+            animation: pulseBtn 2s infinite;
         }
 
-        /* ANIMATIONS */
-        @keyframes slideUp { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        /* --- GAME UI (From your Money Clicker) --- */
+        .game-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 30px;
+        }
+        .btn-back {
+            background: rgba(255,255,255,0.1); border: none;
+            color: #fff; padding: 8px 16px; border-radius: 8px; font-weight: bold;
+        }
+
+        .score-display { text-align: center; margin-bottom: 40px; }
+        .score-val { 
+            font-size: 4rem; font-weight: 800; 
+            background: linear-gradient(to bottom, #ffffff, #cbd5e1);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .gps-val { color: var(--text-secondary); font-family: 'JetBrains Mono', monospace; }
+
+        .clicker-area {
+            flex: 1; display: flex; justify-content: center; align-items: center;
+            position: relative;
+        }
+
+        .clicker-btn {
+            font-size: 7rem; background: none; border: none;
+            cursor: pointer; transition: transform 0.1s var(--bounce);
+            filter: drop-shadow(0 0 30px rgba(74, 222, 128, 0.3));
+        }
+        .clicker-btn:active { transform: scale(0.9); }
+
+        .boost-panel {
+            background: var(--card-bg);
+            padding: 15px; border-radius: 20px;
+            display: flex; justify-content: space-between; align-items: center;
+            border: 1px solid var(--accent-green);
+            box-shadow: 0 0 15px rgba(74, 222, 128, 0.1);
+        }
+
+        .btn-ad {
+            background: linear-gradient(90deg, #f59e0b, #d97706);
+            color: white; border: none;
+            padding: 10px 20px; border-radius: 12px;
+            font-weight: bold; font-size: 14px;
+            display: flex; align-items: center; gap: 5px;
+            animation: glow 2s infinite;
+        }
+
+        /* PARTICLES */
+        .particle {
+            position: absolute; pointer-events: none;
+            color: var(--accent-green); font-weight: bold; font-size: 1.5rem;
+            animation: floatUp 0.8s ease-out forwards;
+            z-index: 99;
+        }
+
+        @keyframes floatUp { to { transform: translateY(-100px); opacity: 0; } }
+        @keyframes pulseBtn { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.02); } }
+        @keyframes glow { 0%, 100% { box-shadow: 0 0 5px #f59e0b; } 50% { box-shadow: 0 0 20px #f59e0b; } }
 
     </style>
 </head>
-<body data-theme="dark">
+<body>
 
 <div id="app-container">
-
+    
     <div id="screen-home" class="screen active">
-        <div class="mode-toggle" onclick="toggleTheme()">◑</div>
-
-        <h1>Passive Income</h1>
-        <div class="subtitle">
-            <span id="ads-count">0</span>/100 ads watched
+        <div class="squad-header">
+            <div class="squad-title">YOUR SQUAD</div>
+            <div class="squad-name" id="squad-name">Squad #007</div>
+            <div class="squad-timer">⏳ Reset in 6d 12h</div>
         </div>
 
-        <div class="progress-container">
-            <div class="progress-track">
-                <div class="progress-fill" id="progress-bar"></div>
+        <div class="mission-card">
+            <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                <span style="font-weight:600;">Daily Mining Goal</span>
+                <span id="goal-text" style="color:var(--accent-green);">0 / 10,000</span>
+            </div>
+            <div class="mission-progress">
+                <div class="mission-bar" id="mission-bar"></div>
+            </div>
+            <div style="font-size:11px; color:var(--text-secondary); margin-top:8px;">
+                ⬇️ Reach goal to enter Weekly Prize Pool
             </div>
         </div>
 
-        <button class="btn-start" onclick="transitionToGame()">Start ➡️</button>
-
-        <div class="reward-info">
-            * Person with most points today will be awarded ₹50
-        </div>
-    </div>
-
-    <div id="screen-game" class="screen">
-        <div id="game-wrapper">
-            <canvas id="canvas"></canvas>
-            
-            <div id="game-over-ui">
-                <div class="go-title">GAME OVER</div>
-                <div class="go-score">Score: <span id="final-score">0</span></div>
-                <button class="btn-revive" onclick="watchAdAndRevive()">📺 Watch Ad & Revive</button>
-                <button class="btn-home" onclick="goHome()">🏠 Home</button>
+        <div class="logs-panel" id="logs-box">
             </div>
+
+        <button class="btn-play" onclick="goToGame()">START MINING ⛏️</button>
+    </div>
+
+    <div id="screen-game" class="screen hidden-right">
+        <div class="game-header">
+            <button class="btn-back" onclick="goHome()">⬅ Back</button>
+            <div style="font-size:12px; opacity:0.7;">AUTO-MINER v2.0</div>
+        </div>
+
+        <div class="score-display">
+            <div class="score-val" id="game-score">0</div>
+            <div class="gps-val">⚡ <span id="game-gps">0</span> / sec</div>
+        </div>
+
+        <div class="clicker-area">
+            <button class="clicker-btn" id="clicker-btn">💸</button>
+        </div>
+
+        <div class="boost-panel">
+            <div>
+                <div style="font-weight:bold; font-size:14px;">TURBO CHARGER</div>
+                <div style="font-size:11px; color:var(--text-secondary);">+5 Auto-Clicks/sec</div>
+            </div>
+            <button class="btn-ad" onclick="watchAdBoost()">
+                <span>📺</span> BOOST
+            </button>
         </div>
     </div>
 
-</div>
-
-<div style="display:none;">
-    <img id="sprite" src="https://i.imgur.com/2WEhF.png" crossorigin="anonymous">
 </div>
 
 <script>
-    // --- 1. APP STATE & THEME ---
+    // --- 1. STATE & INIT ---
     let state = {
-        adsWatched: 0,
-        theme: 'dark',
-        userId: 'Guest'
+        score: 0,
+        gps: 0,
+        squadId: null,
+        dailyGoal: 10000,
+        userId: "User" + Math.floor(Math.random()*1000)
     };
 
-    // Load from LocalStorage
-    const savedData = localStorage.getItem('passiveIncomeData');
-    if (savedData) {
-        state = { ...state, ...JSON.parse(savedData) };
-        updateHomeUI();
-    }
-
-    // Telegram ID
-    if (window.Telegram?.WebApp) {
-        const user = window.Telegram.WebApp.initDataUnsafe.user;
-        if (user) state.userId = user.id;
-    }
-
-    function toggleTheme() {
-        state.theme = state.theme === 'dark' ? 'light' : 'dark';
-        document.body.setAttribute('data-theme', state.theme);
+    // Load Data
+    const saved = localStorage.getItem('squadMinerData');
+    if(saved) {
+        state = { ...state, ...JSON.parse(saved) };
+    } else {
+        // Assign Random Squad on First Join
+        state.squadId = Math.floor(Math.random() * 100) + 1;
         saveData();
     }
-    // Set initial theme
-    document.body.setAttribute('data-theme', state.theme);
 
-    function updateHomeUI() {
-        document.getElementById('ads-count').innerText = state.adsWatched;
-        let pct = (state.adsWatched / 100) * 100;
-        if (pct > 100) pct = 100;
-        document.getElementById('progress-bar').style.width = pct + "%";
-    }
+    // Init UI
+    document.getElementById('squad-name').innerText = `Squad #${state.squadId}`;
+    updateHomeProgress();
+    
+    // Simulate Logs
+    const names = ["Alex", "CryptoKing", "Sarah", "Miner99", "Elon", "Doge"];
+    const actions = ["joined squad", "reached 10k", "mined 500", "boosted GPS"];
+    
+    setInterval(() => {
+        const logBox = document.getElementById('logs-box');
+        const line = document.createElement('div');
+        line.className = 'log-line';
+        line.innerText = `> ${names[Math.floor(Math.random()*names.length)]} ${actions[Math.floor(Math.random()*actions.length)]}`;
+        logBox.appendChild(line);
+        if(logBox.children.length > 6) logBox.removeChild(logBox.firstChild);
+    }, 2500);
 
-    function saveData() {
-        localStorage.setItem('passiveIncomeData', JSON.stringify(state));
-        // Mock Server Sync
-        try {
-            // Replace with your actual server.py endpoint
-            // fetch('https://your-server.com/api/sync', { method: 'POST', body: JSON.stringify(state) });
-        } catch(e) {}
-    }
 
-    // --- 2. TRANSITIONS ---
-    function transitionToGame() {
-        const home = document.getElementById('screen-home');
-        const game = document.getElementById('screen-game');
-        
-        home.classList.add('exit');
-        home.classList.remove('active');
-
-        setTimeout(() => {
-            game.classList.add('active');
-            initGame(); // Start the game engine
-        }, 600);
+    // --- 2. NAVIGATION ---
+    function goToGame() {
+        switchScreen('screen-home', 'screen-game', 'left');
+        startGameLoop();
     }
 
     function goHome() {
-        const home = document.getElementById('screen-home');
-        const game = document.getElementById('screen-game');
-        const ui = document.getElementById('game-over-ui');
-
-        ui.classList.remove('visible');
-        game.classList.remove('active');
-        
-        updateHomeUI(); // Refresh numbers
-        
-        setTimeout(() => {
-            home.classList.remove('exit');
-            home.classList.add('active');
-        }, 100);
-        
-        player.isDead = true; // Ensure game stops
+        switchScreen('screen-game', 'screen-home', 'right');
+        saveData(); // Sync on exit
     }
 
-    // --- 3. AD INTEGRATION ---
-    function watchAdAndRevive() {
+    function switchScreen(fromId, toId, direction) {
+        const from = document.getElementById(fromId);
+        const to = document.getElementById(toId);
+        
+        from.classList.remove('active');
+        from.classList.add(direction === 'left' ? 'hidden-left' : 'hidden-right');
+        
+        to.classList.remove('hidden-left');
+        to.classList.remove('hidden-right');
+        to.classList.add('active');
+    }
+
+    // --- 3. GAME LOGIC ---
+    const scoreEl = document.getElementById('game-score');
+    const gpsEl = document.getElementById('game-gps');
+    const clicker = document.getElementById('clicker-btn');
+
+    // Audio Context
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playSound() {
+        if(audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.frequency.setValueAtTime(600 + Math.random()*200, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+    }
+
+    // Click Handler
+    function handleClick(e) {
+        state.score++;
+        updateGameUI();
+        playSound();
+        
+        // Particle
+        const p = document.createElement('div');
+        p.className = 'particle';
+        p.innerText = "+1";
+        p.style.left = e.clientX + "px";
+        p.style.top = e.clientY + "px";
+        document.body.appendChild(p);
+        setTimeout(() => p.remove(), 800);
+        
+        // Save progress periodically
+        if(state.score % 10 === 0) saveData();
+    }
+
+    clicker.addEventListener('mousedown', handleClick);
+    clicker.addEventListener('touchstart', (e) => { e.preventDefault(); handleClick(e.touches[0]); });
+
+    // Auto-Miner Loop
+    let gameInterval;
+    function startGameLoop() {
+        updateGameUI();
+        if(gameInterval) clearInterval(gameInterval);
+        
+        gameInterval = setInterval(() => {
+            if(state.gps > 0) {
+                state.score += state.gps;
+                updateGameUI();
+            }
+        }, 1000);
+    }
+
+    function updateGameUI() {
+        scoreEl.innerText = Math.floor(state.score).toLocaleString();
+        gpsEl.innerText = state.gps;
+        updateHomeProgress(); // Update home screen bar too
+    }
+
+    function updateHomeProgress() {
+        const pct = Math.min(100, (state.score / state.dailyGoal) * 100);
+        document.getElementById('mission-bar').style.width = pct + "%";
+        document.getElementById('goal-text').innerText = `${Math.floor(state.score).toLocaleString()} / 10,000`;
+    }
+
+    function saveData() {
+        localStorage.setItem('squadMinerData', JSON.stringify(state));
+        // Mock Server Sync
+        // fetch('/api/sync', { method:'POST', body: JSON.stringify(state) });
+    }
+
+    // --- 4. AD BOOST INTEGRATION ---
+    function watchAdBoost() {
         if (typeof show_10572322 === 'function') {
             show_10572322().then(() => {
-                // Success
-                state.adsWatched++;
+                // REWARD: +5 GPS Permanent
+                state.gps += 5;
+                state.score += 100; // Bonus cash
+                updateGameUI();
                 saveData();
-                reviveGame();
-                alert('You have seen an ad! +1 to Progress');
+                alert("BOOST ACTIVATED! +5 Auto-Clicks/sec Added.");
             }).catch(e => {
-                // Error / AdBlock Fallback
                 console.log("Ad Error", e);
-                state.adsWatched++; // Give credit anyway for testing
-                saveData();
-                reviveGame();
+                // Fallback for testing
+                state.gps += 5;
+                updateGameUI();
+                alert("Test Boost Applied (+5 GPS)");
             });
         } else {
-            console.warn("Monetag SDK not ready. Reviving for testing.");
-            state.adsWatched++;
-            saveData();
-            reviveGame();
+            alert("Ad SDK loading... Try again in 5s.");
         }
     }
-
-    // --- 4. GAME ENGINE (DOODLE JUMP) ---
-    // Minified logic adapted for this UI
-    
-    var canvas = document.getElementById('canvas'),
-        ctx = canvas.getContext('2d');
-    var width = 360, height = 640;
-    
-    // Resize handling
-    function resizeCanvas() {
-        const wrapper = document.getElementById('game-wrapper');
-        canvas.width = wrapper.clientWidth;
-        canvas.height = wrapper.clientHeight;
-        width = canvas.width;
-        height = canvas.height;
-    }
-    window.addEventListener('resize', resizeCanvas);
-
-    var platforms = [], image = document.getElementById("sprite"),
-        player, platformCount = 10, position = 0, gravity = 0.2,
-        animloop, flag = 0, broken = 0, dir, score = 0, firstRun = true;
-
-    var Base = function() {
-        this.height = 5; this.width = width;
-        this.cx = 0; this.cy = 614; this.cwidth = 100; this.cheight = 5;
-        this.x = 0; this.y = height - this.height;
-        this.draw = function() { try { ctx.drawImage(image, this.cx, this.cy, this.cwidth, this.cheight, this.x, this.y, this.width, this.height); } catch (e) {} };
-    };
-    var base = new Base();
-
-    var Player = function() {
-        this.vy = 11; this.vx = 0;
-        this.isMovingLeft = false; this.isMovingRight = false;
-        this.isDead = false;
-        this.width = 55; this.height = 40;
-        this.cx = 0; this.cy = 0; this.cwidth = 110; this.cheight = 80;
-        this.dir = "left";
-        this.x = width / 2 - this.width / 2; this.y = height;
-        this.draw = function() {
-            try {
-                if (this.dir == "right") this.cy = 121; else if (this.dir == "left") this.cy = 201;
-                ctx.drawImage(image, this.cx, this.cy, this.cwidth, this.cheight, this.x, this.y, this.width, this.height);
-            } catch (e) {}
-        };
-        this.jump = function() { this.vy = -8; };
-    };
-    player = new Player();
-
-    function Platform() {
-        this.width = 70; this.height = 17;
-        this.x = Math.random() * (width - this.width);
-        this.y = position;
-        position += (height / platformCount);
-        this.flag = 0; this.state = 0;
-        this.cx = 0; this.cy = 0; this.cwidth = 105; this.cheight = 31;
-        this.draw = function() {
-            try {
-                if (this.type == 1) this.cy = 0; else if (this.type == 2) this.cy = 61;
-                ctx.drawImage(image, this.cx, this.cy, this.cwidth, this.cheight, this.x, this.y, this.width, this.height);
-            } catch (e) {}
-        };
-        this.type = 1; // Simplify types for this version
-        this.vx = 1;
-    }
-
-    function initGame() {
-        resizeCanvas();
-        resetVars();
-        animloop();
-    }
-
-    function resetVars() {
-        player = new Player();
-        base = new Base();
-        platforms = [];
-        position = 0; score = 0;
-        for (var i = 0; i < platformCount; i++) platforms.push(new Platform());
-        document.getElementById('game-over-ui').classList.remove('visible');
-    }
-
-    function reviveGame() {
-        // Reset player to safe spot, keep score
-        player.y = height / 2;
-        player.vy = 0;
-        player.x = width / 2;
-        player.isDead = false;
-        // Move base under player
-        base.y = height + 100; // Hide base
-        // Clear nearby platforms
-        platforms.forEach(p => { if (p.y > player.y && p.y < player.y + 200) p.y = -100; });
-        platforms.push(new Platform()); platforms[platforms.length-1].y = player.y + 100; platforms[platforms.length-1].x = player.x;
-
-        document.getElementById('game-over-ui').classList.remove('visible');
-        animloop();
-    }
-
-    function gameOver() {
-        player.isDead = true;
-        document.getElementById('final-score').innerText = score;
-        document.getElementById('game-over-ui').classList.add('visible');
-    }
-
-    function update() {
-        ctx.clearRect(0, 0, width, height);
-        
-        // Input Physics
-        if (player.isMovingLeft) { player.x += player.vx; player.vx -= 0.15; } 
-        else { player.x += player.vx; if (player.vx < 0) player.vx += 0.1; }
-        if (player.isMovingRight) { player.x += player.vx; player.vx += 0.15; } 
-        else { player.x += player.vx; if (player.vx > 0) player.vx -= 0.1; }
-
-        // Wall Loop
-        if (player.x > width) player.x = 0 - player.width;
-        else if (player.x < 0 - player.width) player.x = width;
-
-        // Gravity / Jump
-        if ((player.y + player.height) > base.y && base.y < height) player.jump();
-        
-        // Death
-        if (player.y > height && !player.isDead) { gameOver(); return; }
-
-        // Camera Scroll
-        if (player.y >= (height / 2) - (player.height / 2)) {
-            player.y += player.vy;
-            player.vy += gravity;
-        } else {
-            platforms.forEach(function(p, i) {
-                if (player.vy < 0) p.y -= player.vy;
-                if (p.y > height) {
-                    platforms[i] = new Platform();
-                    platforms[i].y = p.y - height;
-                }
-            });
-            base.y -= player.vy;
-            player.vy += gravity;
-            if (player.vy >= 0) { player.y += player.vy; player.vy += gravity; }
-            score++;
-        }
-
-        // Draw
-        platforms.forEach(p => p.draw());
-        player.draw();
-        base.draw();
-
-        // Platform Collision
-        platforms.forEach(function(p) {
-            if (player.vy > 0 && 
-               (player.x + 15 < p.x + p.width) && 
-               (player.x + player.width - 15 > p.x) && 
-               (player.y + player.height > p.y) && 
-               (player.y + player.height < p.y + p.height)) {
-                player.jump();
-            }
-        });
-    }
-
-    animloop = function() {
-        if (!player.isDead && document.getElementById('screen-game').classList.contains('active')) {
-            update();
-            requestAnimationFrame(animloop);
-        }
-    };
-
-    // CONTROLS (Touch + Key)
-    document.onkeydown = function(e) {
-        if (e.keyCode == 37) { player.dir = "left"; player.isMovingLeft = true; }
-        else if (e.keyCode == 39) { player.dir = "right"; player.isMovingRight = true; }
-    };
-    document.onkeyup = function(e) { player.isMovingLeft = false; player.isMovingRight = false; };
-    
-    // Touch
-    canvas.addEventListener('touchstart', function(e) {
-        e.preventDefault();
-        var rect = canvas.getBoundingClientRect();
-        var x = e.touches[0].clientX - rect.left;
-        if (x < width / 2) { player.dir = "left"; player.isMovingLeft = true; }
-        else { player.dir = "right"; player.isMovingRight = true; }
-    });
-    canvas.addEventListener('touchend', function() { player.isMovingLeft = false; player.isMovingRight = false; });
 
 </script>
 </body>
