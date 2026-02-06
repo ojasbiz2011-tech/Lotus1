@@ -3,496 +3,404 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Floppy Bird Challenge</title>
+    <title>Dense Wood Jump</title>
 
     <script src='//libtl.com/sdk.js' data-zone='10572322' data-sdk='show_10572322'></script>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link href="https://fonts.googleapis.com/css?family=Gloria+Hallelujah" rel="stylesheet">
     
-    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
-
     <style>
-        body { 
-            margin: 0; padding: 0; 
-            background-color: #70c5ce; 
-            font-family: 'Press Start 2P', cursive; 
-            overflow: hidden; 
-            user-select: none; 
-            touch-action: none;
-        }
+        /* --- CORE UI & DASHBOARD --- */
+        body { margin: 0; padding: 0; background-color: rgb(250, 242, 230); font-family: 'Verdana', sans-serif; overflow: hidden; user-select: none; }
+        .screen { display: none; width: 100%; height: 100vh; position: absolute; top: 0; left: 0; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 20px; box-sizing: border-box; z-index: 10; }
+        .active { display: flex; }
+        h1 { color: rgb(80, 50, 30); margin-bottom: 5px; font-size: 24px; font-weight: bold; text-align: center; }
+        .card { background: rgb(250, 242, 230); border: 4px solid rgb(101, 67, 33); padding: 15px; border-radius: 12px; width: 85%; text-align: center; margin-bottom: 10px; color: rgb(80, 50, 30); box-shadow: 0 4px 0 rgba(101,67,33,0.2); }
+        .btn { background: rgb(101, 67, 33); color: white; padding: 15px 30px; border-radius: 8px; font-weight: bold; margin: 5px; cursor: pointer; border: 2px solid rgb(80, 50, 30); font-size: 16px; width: 80%; }
+        .btn-gold { background: #d4af37; color: black; border-color: #b8962e; }
+        .log-box { height: 80px; overflow-y: auto; font-size: 12px; text-align: left; background: rgba(101, 67, 33, 0.05); border: 2px solid rgb(101, 67, 33); border-radius: 8px; padding: 5px; margin-top: 10px; }
+        .lb-list { height: 60vh; overflow-y: auto; text-align: left; }
+        .lb-row { display: flex; justify-content: space-between; padding: 8px; border-bottom: 1px solid rgba(101,67,33,0.3); }
 
-        /* UTILS */
-        .hidden { display: none !important; }
+        /* --- DOODLE JUMP ENGINE STYLES --- */
+        #screen-game { background: url(https://i.imgur.com/Y0BMP.png) top left; font-family: 'Gloria Hallelujah', cursive; }
+        .game-container { height: 552px; width: 422px; position: relative; margin-top: 60px; overflow: hidden; scale: 0.9; /* Scale for mobile screens */}
+        canvas { display: block; border: 2px solid #5a5816; background: transparent; }
+        #scoreBoard { width: 100%; height: 50px; background: rgba(182, 200, 220, 0.7); position: absolute; top: 0; left: 0; z-index: 1; border-bottom: 2px solid #5a5816; display: none;}
+        #scoreBoard p { font-size: 20px; line-height: 47px; margin: 0 0 0 10px; }
+        #mainMenu, #gameOverMenu { height: 100%; width: 100%; text-align: center; position: absolute; top: 0; left: 0; z-index: 2; background: rgba(250, 242, 230, 0.9); display: flex; flex-direction: column; align-items: center; justify-content: center;}
+        #gameOverMenu { visibility: hidden; }
+        .jump-h1 { font-size: 40px; color: #5a5816; transform: rotate(-10deg); margin: 0; font-family: 'Gloria Hallelujah', cursive; }
+        .button-game { width: 150px; height: 40px; background: #5a5816; color: white; line-height: 40px; text-decoration: none; border-radius: 5px; margin: 10px; font-weight: bold; cursor: pointer;}
+        .info { font-size: 12px; color: green; margin-top: 10px; }
+        img#sprite { display: none; }
         
-        /* SCREENS */
-        .screen { 
-            width: 100%; height: 100vh; 
-            position: absolute; top: 0; left: 0; 
-            display: flex; flex-direction: column; align-items: center; 
-            z-index: 10;
-        }
-
-        /* HOME SCREEN */
-        #screen-home {
-            background: linear-gradient(#70c5ce, #fff); /* Fallback */
-            justify-content: center;
-        }
-        
-        .logo {
-            font-size: 30px; color: #fff; 
-            text-shadow: 4px 4px 0 #000;
-            margin-bottom: 20px; text-align: center;
-            line-height: 1.5;
-        }
-
-        .score-board {
-            background: #ded895;
-            border: 4px solid #543847;
-            padding: 15px;
-            text-align: center;
-            margin-bottom: 30px;
-            width: 80%;
-            border-radius: 4px;
-            box-shadow: 0 6px 0 rgba(0,0,0,0.2);
-        }
-        .score-label { color: #e58d25; font-size: 10px; margin-bottom: 5px; }
-        .score-val { color: #fff; font-size: 20px; text-shadow: 2px 2px 0 #000; }
-
-        /* BUTTONS */
-        .btn {
-            background: #e6522c; /* Reddish Orange */
-            border: 4px solid #fff;
-            color: #fff;
-            padding: 15px 20px;
-            font-family: 'Press Start 2P', cursive;
-            font-size: 14px;
-            cursor: pointer;
-            margin: 10px;
-            box-shadow: 4px 4px 0 #000;
-            text-shadow: 2px 2px 0 #000;
-            transition: transform 0.1s;
-        }
-        .btn:active { transform: translate(4px, 4px); box-shadow: 0 0 0 #000; }
-        .btn-green { background: #55b62b; }
-        .btn-blue { background: #3b8ad9; }
-
-        /* GAME OVER OVERLAY */
-        #game-over-modal {
-            position: absolute; top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            background: #ded895;
-            border: 4px solid #543847;
-            padding: 20px;
-            text-align: center;
-            display: none;
-            z-index: 20;
-            width: 80%;
-        }
-
-        /* SCORE HUD */
-        #hud-score {
-            position: absolute; top: 10%; width: 100%;
-            text-align: center; font-size: 40px; color: white;
-            text-shadow: 4px 4px 0 #000;
-            z-index: 5; pointer-events: none;
-        }
-        
-        /* LOGS */
-        .logs-box {
-            font-size: 8px; color: #543847; 
-            margin-top: 10px; height: 50px; overflow-y: scroll;
-            width: 80%; background: rgba(255,255,255,0.3); padding: 5px;
-        }
-
-        canvas { 
-            display: block; width: 100%; height: 100%; 
-            image-rendering: pixelated; 
-        }
+        .exit-overlay { position: absolute; top: 10px; left: 10px; z-index: 100; }
     </style>
 </head>
 <body>
 
-    <div id="screen-home" class="screen">
-        <div class="logo">FLOPPY<br>BIRD</div>
-        
-        <div class="score-board">
-            <div class="score-label">WEEKLY BEST</div>
-            <div class="score-val" id="best-score">0</div>
+    <div id="screen-home" class="screen active">
+        <h1>Dense Wood Jump</h1>
+        <div class="card">
+            <h3>🏆 Weekly Prize Pool</h3>
+            <h2 id="pool-display">₹0.00</h2>
+            <div class="log-box" id="activity-log"><div class="log-item">Loading...</div></div>
         </div>
-
-        <button class="btn btn-green" onclick="startGame()">▶ START GAME</button>
-        <button class="btn btn-blue" onclick="loadLeaderboard()">🏆 RANKING</button>
-        
-        <div class="logs-box" id="recent-logs">Loading logs...</div>
+        <div class="card" style="padding: 10px;">
+            <div style="display: flex; justify-content: space-around;">
+                <div><span style="font-size:10px;">YOUR RANK</span><br><b style="font-size:20px;" id="my-rank">-</b></div>
+                <div><span style="font-size:10px;">POINTS</span><br><b style="font-size:20px;" id="my-score">0</b></div>
+            </div>
+        </div>
+        <button class="btn" onclick="startGame()">🚀 Play Game</button>
+        <button class="btn btn-gold" onclick="showScreen('screen-leaderboard')">🏅 Leaderboard</button>
     </div>
 
-    <div id="screen-game" class="screen hidden">
-        <div id="hud-score">0</div>
-        <canvas id="gameCanvas"></canvas>
+    <div id="screen-leaderboard" class="screen">
+        <h1>Top Players</h1>
+        <div class="card lb-list" id="lb-content"><div>Loading...</div></div>
+        <button class="btn" onclick="showScreen('screen-home')">⬅ Back Home</button>
+    </div>
+
+    <div id="screen-game" class="screen">
+        <div class="exit-overlay">
+            <button class="btn" style="width: auto; padding: 5px 15px;" onclick="exitGame()">❌ Exit</button>
+        </div>
         
-        <div id="game-over-modal">
-            <h2 style="color: #e6522c; margin-top:0; text-shadow: 2px 2px 0 #000;">GAME OVER</h2>
-            <p>SCORE: <span id="final-score">0</span></p>
+        <div class="game-container">
+            <div id="scoreBoard">
+                <p id="score">0</p>
+            </div>
+
+            <canvas id="canvas"></canvas>
+
+            <div id="mainMenu">
+                <h1 class="jump-h1">doodle jump</h1>
+                <p class="info">Use Tilt or Touch sides to move</p>
+                <div class="button-game" onclick="initGame()">Start</div>
+            </div>
             
-            <button id="btn-revive" class="btn btn-blue" onclick="startReviveChain()">
-                📺 REVIVE (0/3)
-            </button>
-            <br>
-            <button class="btn" onclick="quitGame()">❌ QUIT</button>
+            <div id="gameOverMenu">
+                <h1 class="jump-h1">game over!</h1>
+                <h3 id="go_score">you scored 0 points</h3>
+                <div class="button-game" onclick="watchAdAndRestart()">Watch Ad & Restart</div>
+                <div class="button-game" style="background: #888;" onclick="exitGame()">Main Menu</div>
+            </div>
         </div>
     </div>
+
+    <img id="sprite" src="https://i.imgur.com/2WEhF.png"/>
 
 <script>
-// --- CONFIGURATION ---
-const GRAVITY = 0.25;
-const JUMP = -4.6;
-const PIPE_SPEED = 2;
-const PIPE_SPAWN_RATE = 120; // Frames
-const PIPE_GAP = 100; // Gap size
-
-// --- ASSETS ---
-const bgImage = new Image();
-bgImage.src = 'flappy_bird_app_bg_only.png'; 
-// Note: If image fails, we fallback to blue color
-
-// --- AUDIO (Synthesized) ---
-const AudioContext = window.AudioContext || window.webkitAudioContext;
-let audioCtx;
-
-function initAudio() {
-    if (!audioCtx) audioCtx = new AudioContext();
-    if (audioCtx.state === 'suspended') audioCtx.resume();
+// --- TELEGRAM & UI LOGIC ---
+function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    if(id === 'screen-home') loadUserData();
 }
 
-function playSound(type) {
-    if (!audioCtx) return;
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
-
-    if (type === 'jump') {
-        osc.type = 'square';
-        osc.frequency.setValueAtTime(150, audioCtx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(600, audioCtx.currentTime + 0.1);
-        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-        osc.start(); osc.stop(audioCtx.currentTime + 0.1);
-    } else if (type === 'die') {
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(200, audioCtx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.3);
-        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
-        osc.start(); osc.stop(audioCtx.currentTime + 0.3);
-    } else if (type === 'score') {
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(1000, audioCtx.currentTime);
-        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-        osc.start(); osc.stop(audioCtx.currentTime + 0.1);
-    }
+function exitGame() {
+    stopGameLoop();
+    showScreen('screen-home');
 }
 
-// --- GAME STATE ---
-let canvas = document.getElementById('gameCanvas');
-let ctx = canvas.getContext('2d');
-let frames = 0;
-let score = 0;
-let bestScore = 0;
-let gameState = 'START'; // START, PLAYING, GAMEOVER
-let adsWatched = 0; // For revive logic
-
-let bird = { x: 50, y: 150, w: 34, h: 24, velocity: 0, frame: 0 };
-let pipes = [];
-
-// --- RESIZE ---
-function resize() {
-    canvas.width = 320; // Internal resolution (retro feel)
-    canvas.height = 480;
-    // CSS handles the stretching to full screen
-}
-resize();
-
-// --- GAME LOOP ---
-function loop() {
-    update();
-    draw();
-    if (gameState !== 'QUIT') requestAnimationFrame(loop);
-}
-
-function update() {
-    if (gameState !== 'PLAYING') return;
-
-    frames++;
-
-    // Bird Physics
-    bird.velocity += GRAVITY;
-    bird.y += bird.velocity;
-
-    // Ground Collision
-    let groundY = canvas.height - 112; // Approximation of ground height in BG
-    if (bird.y + bird.h >= groundY) {
-        bird.y = groundY - bird.h;
-        gameOver();
-    }
-
-    // Pipe Logic
-    if (frames % PIPE_SPAWN_RATE === 0) {
-        let topH = Math.random() * (canvas.height - 200) + 20;
-        pipes.push({
-            x: canvas.width,
-            y: topH, // Height of bottom edge of top pipe
-            passed: false
-        });
-    }
-
-    for (let i = 0; i < pipes.length; i++) {
-        let p = pipes[i];
-        p.x -= PIPE_SPEED;
-
-        // Collision Check
-        // Top Pipe Rect: {x: p.x, y: 0, w: 52, h: p.y}
-        // Bottom Pipe Rect: {x: p.x, y: p.y + PIPE_GAP, w: 52, h: canvas.height}
-        
-        let birdLeft = bird.x + 2; // Hitbox adjustment
-        let birdRight = bird.x + bird.w - 2;
-        let birdTop = bird.y + 2;
-        let birdBottom = bird.y + bird.h - 2;
-
-        let pipeLeft = p.x;
-        let pipeRight = p.x + 52;
-
-        if (birdRight > pipeLeft && birdLeft < pipeRight) {
-            // Inside pipe horizontal area
-            if (birdTop < p.y || birdBottom > p.y + PIPE_GAP) {
-                gameOver();
-            }
-        }
-
-        // Score
-        if (p.x + 52 < bird.x && !p.passed) {
-            score++;
-            p.passed = true;
-            playSound('score');
-            document.getElementById('hud-score').innerText = score;
-        }
-
-        // Remove old pipes
-        if (p.x + 52 < 0) {
-            pipes.shift();
-            i--;
-        }
-    }
-}
-
-function draw() {
-    // 1. Background
-    if (bgImage.complete) {
-        ctx.drawImage(bgImage, 0, 0, canvas.width, canvas.height);
-    } else {
-        ctx.fillStyle = "#70c5ce";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        // Draw basic ground
-        ctx.fillStyle = "#ded895";
-        ctx.fillRect(0, canvas.height - 112, canvas.width, 112);
-    }
-
-    // 2. Pipes
-    for (let p of pipes) {
-        drawPipe(p.x, p.y);
-    }
-
-    // 3. Bird
-    drawBird(bird.x, bird.y, bird.velocity);
-}
-
-// --- DRAWING HELPERS (Pixel Art Code) ---
-function drawBird(x, y, vel) {
-    ctx.save();
-    ctx.translate(x + bird.w/2, y + bird.h/2);
-    let rotation = Math.min(Math.PI / 4, Math.max(-Math.PI / 4, (vel * 0.1)));
-    ctx.rotate(rotation);
-    
-    // Pixel Art Bird (Yellow body, white eye, orange beak)
-    let w = bird.w, h = bird.h;
-    
-    // Outline
-    ctx.fillStyle = "#543847"; // Dark stroke
-    ctx.fillRect(-w/2, -h/2, w, h);
-    
-    // Body
-    ctx.fillStyle = "#e9fc00"; // Yellow
-    ctx.fillRect(-w/2 + 2, -h/2 + 2, w - 4, h - 4);
-    
-    // Eye
-    ctx.fillStyle = "#fff";
-    ctx.fillRect(4, -8, 10, 10);
-    ctx.fillStyle = "#000"; // Pupil
-    ctx.fillRect(10, -6, 2, 2);
-    
-    // Beak
-    ctx.fillStyle = "#e6522c"; // Orange
-    ctx.fillRect(6, 2, 12, 6);
-    
-    // Wing
-    ctx.fillStyle = "#fff";
-    ctx.fillRect(-10, 0, 12, 6);
-
-    ctx.restore();
-}
-
-function drawPipe(x, topH) {
-    let w = 52;
-    let gap = PIPE_GAP;
-    
-    ctx.fillStyle = "#73bf2e"; // Light Green
-    ctx.strokeStyle = "#543847"; // Dark Outline
-    ctx.lineWidth = 2;
-
-    // Top Pipe
-    ctx.fillRect(x, 0, w, topH);
-    ctx.strokeRect(x, -2, w, topH); // Main body
-    ctx.fillRect(x - 2, topH - 24, w + 4, 24); // Cap
-    ctx.strokeRect(x - 2, topH - 24, w + 4, 24); // Cap outline
-
-    // Bottom Pipe
-    let botY = topH + gap;
-    let botH = canvas.height - botY - 112; // Stop at ground
-    ctx.fillRect(x, botY, w, botH);
-    ctx.strokeRect(x, botY, w, botH + 2);
-    ctx.fillRect(x - 2, botY, w + 4, 24); // Cap
-    ctx.strokeRect(x - 2, botY, w + 4, 24); // Cap outline
-}
-
-// --- CONTROLS ---
-function jump() {
-    if (gameState === 'PLAYING') {
-        bird.velocity = JUMP;
-        playSound('jump');
-    }
-}
-window.addEventListener('mousedown', jump);
-window.addEventListener('touchstart', (e) => { e.preventDefault(); jump(); });
-
-// --- GAME LOGIC FLOW ---
 function startGame() {
-    initAudio();
-    document.getElementById('screen-home').classList.add('hidden');
-    document.getElementById('screen-game').classList.remove('hidden');
-    resetGame();
-    gameState = 'PLAYING';
-    loop();
-}
-
-function resetGame() {
-    bird.y = 150;
-    bird.velocity = 0;
-    pipes = [];
-    score = 0;
-    frames = 0;
-    document.getElementById('hud-score').innerText = '0';
-    document.getElementById('game-over-modal').style.display = 'none';
-    adsWatched = 0;
-    updateReviveBtn();
-}
-
-function gameOver() {
-    gameState = 'GAMEOVER';
-    playSound('die');
-    document.getElementById('final-score').innerText = score;
-    document.getElementById('game-over-modal').style.display = 'block';
-    
-    // Save Score
-    saveScore(score);
-}
-
-function quitGame() {
-    document.getElementById('screen-game').classList.add('hidden');
-    document.getElementById('screen-home').classList.remove('hidden');
-    loadUserData(); // Refresh logs
-}
-
-// --- REVIVE LOGIC (3 ADS) ---
-function updateReviveBtn() {
-    let btn = document.getElementById('btn-revive');
-    if (adsWatched >= 3) {
-        btn.innerText = "❤️ REVIVE NOW!";
-        btn.classList.add('btn-green');
-        btn.classList.remove('btn-blue');
-    } else {
-        btn.innerText = `📺 REVIVE (${adsWatched}/3)`;
-        btn.classList.remove('btn-green');
-        btn.classList.add('btn-blue');
-    }
-}
-
-function startReviveChain() {
-    if (adsWatched >= 3) {
-        // ACTUALLY REVIVE
-        gameState = 'PLAYING';
-        bird.y = 150; // Reset position safely
-        bird.velocity = 0;
-        pipes = []; // Clear pipes for safe start
-        document.getElementById('game-over-modal').style.display = 'none';
-        playSound('jump');
-        return;
-    }
-
-    // WATCH AD
-    if (typeof show_10572322 === 'function') {
-        show_10572322().then(() => {
-            adsWatched++;
-            updateReviveBtn();
-            if(adsWatched < 3) {
-                alert(`Ad ${adsWatched}/3 Complete. Watch ${3-adsWatched} more to revive.`);
-            }
-        }).catch(e => {
-            console.log("Ad Error", e);
-            // Fallback for testing (remove in production)
-            adsWatched++; 
-            updateReviveBtn();
-        });
-    } else {
-        alert("Ad script not loaded.");
-    }
-}
-
-// --- BACKEND SIMULATION ---
-async function saveScore(s) {
-    if (s > bestScore) bestScore = s;
-    try {
-        const userId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 12345;
-        // POST score to server
-        await fetch('/api/score/submit', { 
-            method: 'POST', 
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ user_id: userId, score: s }) 
-        });
-    } catch(e) {}
+    showScreen('screen-game');
+    reset();
 }
 
 async function loadUserData() {
     try {
         const userId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 12345;
-        let res = await fetch(`/api/user/${userId}`); // Assume API returns weekly high score
-        if (res.ok) {
+        let res = await fetch(`/api/user/${userId}`);
+        if(res.ok) {
             let d = await res.json();
-            document.getElementById('best-score').innerText = d.weekly_best || 0;
-            bestScore = d.weekly_best || 0;
-            
-            // Logs
-            let html = "";
-            if(d.logs) d.logs.forEach(l => html += `<div>Running: ${l} pipes</div>`);
-            document.getElementById('recent-logs').innerHTML = html || "No runs this week.";
+            document.getElementById('pool-display').innerText = "₹" + d.global_pool.toFixed(2);
+            document.getElementById('my-rank').innerText = "#" + d.rank;
+            document.getElementById('my-score').innerText = d.ads_watched;
+            let logHTML = ""; d.recent_logs.forEach(l => logHTML += `<div class="log-item">🔔 ${l}</div>`);
+            document.getElementById('activity-log').innerHTML = logHTML || "<div class='log-item'>No recent activity</div>";
+            let lbHTML = ""; d.top_players.forEach((p, i) => {
+                let icon = i===0 ? "🥇" : (i===1 ? "🥈" : (i===2 ? "🥉" : "👤"));
+                lbHTML += `<div class="lb-row"><span>${icon} ${p.name}</span><b>${p.ads_watched}</b></div>`;
+            });
+            document.getElementById('lb-content').innerHTML = lbHTML || "<div>No players yet</div>";
         }
-    } catch(e) {
-        document.getElementById('recent-logs').innerHTML = "Offline Mode";
+    } catch(e) {}
+}
+
+// --- JUMP GAME ENGINE ---
+window.requestAnimFrame = (function() {
+    return window.requestAnimationFrame || window.webkitRequestAnimationFrame || window.mozRequestAnimationFrame || window.oRequestAnimationFrame || window.msRequestAnimationFrame ||
+    function(callback) { window.setTimeout(callback, 1000 / 60); };
+})();
+
+var canvas = document.getElementById('canvas'), ctx = canvas.getContext('2d');
+var width = 422, height = 552;
+canvas.width = width; canvas.height = height;
+
+var platforms = [], image = document.getElementById("sprite"),
+    player, platformCount = 10, position = 0, gravity = 0.2,
+    animloop, flag = 0, broken = 0, dir, score = 0, firstRun = true, isLooping = false;
+
+// Base object
+var Base = function() {
+    this.height = 5; this.width = width;
+    this.cx = 0; this.cy = 614; this.cwidth = 100; this.cheight = 5;
+    this.x = 0; this.y = height - this.height;
+    this.draw = function() { try { ctx.drawImage(image, this.cx, this.cy, this.cwidth, this.cheight, this.x, this.y, this.width, this.height); } catch (e) {} };
+};
+
+// Player object
+var Player = function() {
+    this.vy = 11; this.vx = 0;
+    this.isMovingLeft = false; this.isMovingRight = false; this.isDead = false;
+    this.width = 55; this.height = 40;
+    this.cx = 0; this.cy = 0; this.cwidth = 110; this.cheight = 80;
+    this.dir = "left";
+    this.x = width / 2 - this.width / 2; this.y = height;
+    this.draw = function() {
+        try {
+            if (this.dir == "right") this.cy = 121;
+            else if (this.dir == "left") this.cy = 201;
+            else if (this.dir == "right_land") this.cy = 289;
+            else if (this.dir == "left_land") this.cy = 371;
+            ctx.drawImage(image, this.cx, this.cy, this.cwidth, this.cheight, this.x, this.y, this.width, this.height);
+        } catch (e) {}
+    };
+    this.jump = function() { this.vy = -8; };
+    this.jumpHigh = function() { this.vy = -16; };
+};
+
+function Platform() {
+    this.width = 70; this.height = 17;
+    this.x = Math.random() * (width - this.width);
+    this.y = position;
+    position += (height / platformCount);
+    this.flag = 0; this.state = 0; this.cx = 0; this.cy = 0; this.cwidth = 105; this.cheight = 31;
+
+    this.draw = function() {
+        try {
+            if (this.type == 1) this.cy = 0;
+            else if (this.type == 2) this.cy = 61;
+            else if (this.type == 3 && this.flag === 0) this.cy = 31;
+            else if (this.type == 3 && this.flag == 1) this.cy = 1000;
+            else if (this.type == 4 && this.state === 0) this.cy = 90;
+            ctx.drawImage(image, this.cx, this.cy, this.cwidth, this.cheight, this.x, this.y, this.width, this.height);
+        } catch (e) {}
+    };
+
+    if (score >= 5000) this.types = [2, 3, 3, 3, 4, 4, 4, 4];
+    else if (score >= 2000) this.types = [2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4];
+    else if (score >= 1000) this.types = [2, 2, 2, 3, 3, 3, 3, 3];
+    else if (score >= 500) this.types = [1, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3];
+    else if (score >= 100) this.types = [1, 1, 1, 1, 2, 2];
+    else this.types = [1];
+
+    this.type = this.types[Math.floor(Math.random() * this.types.length)];
+    this.vx = 1;
+}
+
+var Spring = function() {
+    this.x = 0; this.y = 0; this.width = 26; this.height = 30;
+    this.cx = 0; this.cy = 0; this.cwidth = 45; this.cheight = 53; this.state = 0;
+    this.draw = function() {
+        try {
+            this.cy = (this.state === 0) ? 445 : 501;
+            ctx.drawImage(image, this.cx, this.cy, this.cwidth, this.cheight, this.x, this.y, this.width, this.height);
+        } catch (e) {}
+    };
+};
+
+// Global Game Instances
+var base = new Base();
+player = new Player();
+var springObj = new Spring();
+platforms = [];
+
+function initGame() {
+    hideMenu();
+    showScore();
+    isLooping = true;
+    dir = "left";
+    gameLoop();
+}
+
+function gameLoop() {
+    if(!isLooping) return;
+    update();
+    requestAnimFrame(gameLoop);
+}
+
+function stopGameLoop() {
+    isLooping = false;
+}
+
+function update() {
+    ctx.clearRect(0, 0, width, height);
+    
+    // Platform Logic
+    platforms.forEach(function(p, i) {
+        if (p.type == 2) {
+            if (p.x < 0 || p.x + p.width > width) p.vx *= -1;
+            p.x += p.vx;
+        }
+        p.draw();
+    });
+
+    // Spring Logic
+    var s = springObj;
+    var p0 = platforms[0];
+    if (p0.type == 1 || p0.type == 2) {
+        s.x = p0.x + p0.width / 2 - s.width / 2;
+        s.y = p0.y - p0.height - 10;
+        if (s.y > height / 1.1) s.state = 0;
+        s.draw();
+    }
+
+    // Player Logic
+    if (dir == "left") {
+        player.dir = "left";
+        if (player.vy < -7 && player.vy > -15) player.dir = "left_land";
+    } else {
+        player.dir = "right";
+        if (player.vy < -7 && player.vy > -15) player.dir = "right_land";
+    }
+
+    if (player.isMovingLeft) { player.x += player.vx; player.vx -= 0.15; }
+    else { player.x += player.vx; if (player.vx < 0) player.vx += 0.1; }
+    
+    if (player.isMovingRight) { player.x += player.vx; player.vx += 0.15; }
+    else { player.x += player.vx; if (player.vx > 0) player.vx -= 0.1; }
+
+    if(player.vx > 8) player.vx = 8; else if(player.vx < -8) player.vx = -8;
+    if ((player.y + player.height) > base.y && base.y < height) player.jump();
+    if (base.y > height && (player.y + player.height) > height && player.isDead != "lol") player.isDead = true;
+    if (player.x > width) player.x = 0 - player.width; else if (player.x < 0 - player.width) player.x = width;
+
+    if (player.y >= (height / 2) - (player.height / 2)) {
+        player.y += player.vy;
+        player.vy += gravity;
+    } else {
+        platforms.forEach(function(p, i) {
+            if (player.vy < 0) p.y -= player.vy;
+            if (p.y > height) {
+                platforms[i] = new Platform();
+                platforms[i].y = p.y - height;
+            }
+        });
+        base.y -= player.vy;
+
+        // --- BUG FIX START ---
+        // Score only increases based on distance traveled upwards
+        if (player.vy < 0) {
+            score += Math.floor(-player.vy);
+        }
+        // --- BUG FIX END ---
+
+        player.vy += gravity;
+        if (player.vy >= 0) { player.y += player.vy; player.vy += gravity; }
+    }
+
+    // Collision
+    platforms.forEach(function(p, i) {
+        if (player.vy > 0 && p.state === 0 && (player.x + 15 < p.x + p.width) && (player.x + player.width - 15 > p.x) && (player.y + player.height > p.y) && (player.y + player.height < p.y + p.height)) {
+            if (p.type == 3 && p.flag === 0) { p.flag = 1; return; }
+            else if (p.type == 4) { player.jump(); p.state = 1; }
+            else if (p.flag == 1) return;
+            else player.jump();
+        }
+    });
+
+    if (player.vy > 0 && s.state === 0 && (player.x + 15 < s.x + s.width) && (player.x + player.width - 15 > s.x) && (player.y + player.height > s.y) && (player.y + player.height < s.y + s.height)) {
+        s.state = 1; player.jumpHigh();
+    }
+
+    player.draw();
+    base.draw();
+    document.getElementById("score").innerHTML = score;
+
+    if (player.isDead === true) gameOver();
+}
+
+function gameOver() {
+    stopGameLoop();
+    showGoMenu();
+    hideScore();
+    player.isDead = "lol";
+}
+
+function watchAdAndRestart() {
+    if (typeof show_10572322 === 'function') {
+        show_10572322().then(() => {
+            recordAdReward();
+            reset();
+            initGame();
+        }).catch(() => {
+            reset();
+            initGame();
+        });
+    } else {
+        reset();
+        initGame();
     }
 }
 
-// Init
-loadUserData();
+async function recordAdReward() {
+    try {
+        const userId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 12345;
+        await fetch('/api/ads/confirm', { method:'POST', body:JSON.stringify({user_id:userId, score: score}) });
+        loadUserData(); 
+    } catch(e) {}
+}
 
+function reset() {
+    hideGoMenu();
+    showScore();
+    player = new Player();
+    base = new Base();
+    springObj = new Spring();
+    platforms = [];
+    score = 0;
+    position = 0;
+    for (var i = 0; i < platformCount; i++) platforms.push(new Platform());
+}
+
+// UI Toggles
+function hideMenu() { document.getElementById("mainMenu").style.display = "none"; }
+function showGoMenu() {
+    var menu = document.getElementById("gameOverMenu");
+    menu.style.visibility = "visible";
+    document.getElementById("go_score").innerHTML = "You scored " + score + " points!";
+}
+function hideGoMenu() { document.getElementById("gameOverMenu").style.visibility = "hidden"; }
+function showScore() { document.getElementById("scoreBoard").style.display = "block"; }
+function hideScore() { document.getElementById("scoreBoard").style.display = "none"; }
+
+// Controls
+document.onkeydown = function(e) {
+    if (e.keyCode == 37) { dir = "left"; player.isMovingLeft = true; }
+    else if (e.keyCode == 39) { dir = "right"; player.isMovingRight = true; }
+};
+document.onkeyup = function(e) {
+    if (e.keyCode == 37) player.isMovingLeft = false;
+    else if (e.keyCode == 39) player.isMovingRight = false;
+};
+
+// Touch Controls for Mobile
+canvas.addEventListener('touchstart', function(e) {
+    var touchX = e.touches[0].pageX;
+    if (touchX < window.innerWidth / 2) { dir = "left"; player.isMovingLeft = true; }
+    else { dir = "right"; player.isMovingRight = true; }
+});
+canvas.addEventListener('touchend', function() {
+    player.isMovingLeft = false;
+    player.isMovingRight = false;
+});
+
+// Initial Load
+loadUserData();
 </script>
 </body>
 </html>
