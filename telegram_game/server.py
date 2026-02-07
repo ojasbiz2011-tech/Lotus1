@@ -7,7 +7,7 @@ import os
 
 # --- CONFIGURATION ---
 # 1. Get token from @BotFather
-BOT_TOKEN = "YOUR_BOT_TOKEN_HERE"
+BOT_TOKEN = "8587196149:AAHUXp6ihV6lGrGdBiUkD2btujKHK1-I4dM"
 
 # 2. You need an HTTPS URL for the Mini App. 
 # If testing locally, run 'ngrok http 5000' and paste that URL here.
@@ -116,3 +116,4 @@ if __name__ == "__main__":
     flask_thread.start()
     
     run_bot()
+
