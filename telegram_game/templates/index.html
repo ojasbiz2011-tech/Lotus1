@@ -3,18 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Squad Miner</title>
+    <title>Squad Miner v3</title>
     
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src='//libtl.com/sdk.js' data-zone='10572322' data-sdk='show_10572322'></script>
 
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 
     <style>
         :root {
             --bg-dark: #0f172a;
             --card-bg: #1e293b;
             --accent-green: #4ade80;
+            --accent-gold: #fbbf24;
             --text-primary: #f8fafc;
             --text-secondary: #94a3b8;
             --bounce: cubic-bezier(0.175, 0.885, 0.32, 1.275);
@@ -35,12 +36,12 @@
         #app-container {
             width: 100%; height: 100%;
             position: relative;
-            max-width: 450px; /* Mobile width cap */
+            max-width: 450px;
             background: var(--bg-dark);
             overflow: hidden;
         }
 
-        /* --- SCREENS --- */
+        /* --- SCREENS TRANSITIONS --- */
         .screen {
             position: absolute; top: 0; left: 0;
             width: 100%; height: 100%;
@@ -51,134 +52,103 @@
             overflow-y: auto;
         }
 
-        .screen.active {
-            opacity: 1; pointer-events: auto;
-            transform: translateX(0);
-        }
-
+        .screen.active { opacity: 1; pointer-events: auto; transform: translateX(0); }
         .screen.hidden-left { transform: translateX(-50px); opacity: 0; }
         .screen.hidden-right { transform: translateX(50px); opacity: 0; }
 
         /* --- HOME UI --- */
         .squad-header {
             background: linear-gradient(135deg, #16a34a, #0d9488);
-            padding: 20px;
-            border-radius: 20px;
+            padding: 25px; border-radius: 24px;
             box-shadow: 0 10px 30px rgba(22, 163, 74, 0.3);
-            margin-bottom: 20px;
-            text-align: center;
+            margin-bottom: 25px; text-align: center;
+            position: relative; overflow: hidden;
+        }
+        .squad-header::before {
+            content: ""; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 60%);
+            animation: rotateBg 10s linear infinite;
         }
 
-        .squad-title { font-size: 14px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.9; }
-        .squad-name { font-size: 32px; font-weight: 800; margin: 5px 0; }
-        .squad-timer { font-size: 12px; font-family: 'JetBrains Mono', monospace; background: rgba(0,0,0,0.3); padding: 4px 8px; border-radius: 4px; display: inline-block; }
+        .squad-title { font-size: 12px; text-transform: uppercase; letter-spacing: 2px; opacity: 0.8; position: relative; }
+        .squad-name { font-size: 36px; font-weight: 800; margin: 5px 0; position: relative; text-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+        .squad-timer { font-size: 12px; font-family: 'JetBrains Mono', monospace; background: rgba(0,0,0,0.3); padding: 4px 10px; border-radius: 50px; display: inline-block; position: relative; margin-top: 5px; }
 
         .mission-card {
             background: var(--card-bg);
-            border: 1px solid rgba(255,255,255,0.1);
-            padding: 20px; border-radius: 16px;
-            margin-bottom: 20px;
+            border: 1px solid rgba(255,255,255,0.05);
+            padding: 25px; border-radius: 20px;
+            margin-bottom: auto;
         }
         
         .mission-progress {
-            height: 6px; width: 100%; background: #334155;
-            border-radius: 10px; margin-top: 10px; overflow: hidden;
+            height: 8px; width: 100%; background: #334155;
+            border-radius: 10px; margin-top: 15px; overflow: hidden;
         }
-        .mission-bar { height: 100%; background: var(--accent-green); width: 0%; transition: width 0.5s ease; }
-
-        /* LOGS BOX */
-        .logs-panel {
-            flex: 1;
-            background: #000;
-            border: 1px solid #333;
-            border-radius: 12px;
-            padding: 10px;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 11px;
-            color: #22c55e;
-            overflow-y: hidden;
-            display: flex; flex-direction: column; justify-content: flex-end;
-            margin-bottom: 20px;
-            position: relative;
-        }
-        .logs-panel::before {
-            content: "SQUAD_ACTIVITY_LOG";
-            position: absolute; top: 0; left: 0;
-            background: #22c55e; color: #000;
-            padding: 2px 6px; font-weight: bold;
-        }
-        .log-line { margin: 2px 0; opacity: 0.8; }
+        .mission-bar { height: 100%; background: var(--accent-green); width: 0%; transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 0 10px var(--accent-green); }
 
         .btn-play {
-            width: 100%;
-            padding: 18px;
-            background: var(--accent-green);
-            color: #064e3b;
+            width: 100%; padding: 20px;
+            background: var(--accent-green); color: #064e3b;
             font-size: 18px; font-weight: 800;
-            border: none; border-radius: 16px;
-            cursor: pointer;
-            box-shadow: 0 0 20px rgba(74, 222, 128, 0.4);
-            animation: pulseBtn 2s infinite;
+            border: none; border-radius: 18px; cursor: pointer;
+            box-shadow: 0 5px 20px rgba(74, 222, 128, 0.3);
+            transition: transform 0.1s; margin-bottom: 20px;
+        }
+        .btn-play:active { transform: scale(0.98); }
+
+        /* ADMIN / LOGS */
+        #admin-btn {
+            position: absolute; bottom: 20px; right: 20px;
+            font-size: 20px; cursor: pointer; opacity: 0.5;
+            filter: grayscale(100%); transition: 0.3s;
+        }
+        #admin-btn:hover { opacity: 1; filter: grayscale(0%); transform: scale(1.1); }
+
+        .logs-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95); z-index: 100;
+            padding: 20px; font-family: 'JetBrains Mono', monospace;
+            color: var(--accent-green); font-size: 12px;
+            display: none; flex-direction: column;
+        }
+        .logs-content { flex: 1; overflow-y: auto; margin-top: 20px; border: 1px solid #333; padding: 10px; }
+        .log-entry { margin-bottom: 5px; border-bottom: 1px dashed #333; padding-bottom: 2px; }
+
+        /* WINNER MODAL */
+        .winner-modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); z-index: 200;
+            display: none; flex-direction: column;
+            justify-content: center; align-items: center; padding: 30px;
+            text-align: center;
+        }
+        .winner-title { font-size: 40px; color: var(--accent-gold); margin-bottom: 10px; animation: bounce 1s infinite; }
+        .winner-input {
+            background: #333; border: 1px solid #555; color: white;
+            padding: 15px; width: 100%; border-radius: 10px; margin: 20px 0; font-size: 18px;
         }
 
-        /* --- GAME UI (From your Money Clicker) --- */
-        .game-header {
-            display: flex; justify-content: space-between; align-items: center;
-            margin-bottom: 30px;
-        }
-        .btn-back {
-            background: rgba(255,255,255,0.1); border: none;
-            color: #fff; padding: 8px 16px; border-radius: 8px; font-weight: bold;
-        }
-
-        .score-display { text-align: center; margin-bottom: 40px; }
-        .score-val { 
-            font-size: 4rem; font-weight: 800; 
-            background: linear-gradient(to bottom, #ffffff, #cbd5e1);
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-        }
-        .gps-val { color: var(--text-secondary); font-family: 'JetBrains Mono', monospace; }
-
-        .clicker-area {
-            flex: 1; display: flex; justify-content: center; align-items: center;
-            position: relative;
-        }
-
+        /* --- GAME SCREEN --- */
+        .game-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .score-val { font-size: 4.5rem; font-weight: 800; text-align: center; margin: 20px 0; background: -webkit-linear-gradient(#fff, #94a3b8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        
         .clicker-btn {
-            font-size: 7rem; background: none; border: none;
-            cursor: pointer; transition: transform 0.1s var(--bounce);
-            filter: drop-shadow(0 0 30px rgba(74, 222, 128, 0.3));
+            font-size: 8rem; background: none; border: none;
+            cursor: pointer; transition: transform 0.05s; display: block; margin: 0 auto;
+            filter: drop-shadow(0 0 40px rgba(74, 222, 128, 0.2));
+            -webkit-tap-highlight-color: transparent;
         }
-        .clicker-btn:active { transform: scale(0.9); }
+        .clicker-btn:active { transform: scale(0.95); }
 
-        .boost-panel {
-            background: var(--card-bg);
-            padding: 15px; border-radius: 20px;
+        .boost-bar {
+            background: var(--card-bg); padding: 15px; border-radius: 15px;
             display: flex; justify-content: space-between; align-items: center;
-            border: 1px solid var(--accent-green);
-            box-shadow: 0 0 15px rgba(74, 222, 128, 0.1);
+            border: 1px solid rgba(74, 222, 128, 0.3); margin-top: auto;
         }
 
-        .btn-ad {
-            background: linear-gradient(90deg, #f59e0b, #d97706);
-            color: white; border: none;
-            padding: 10px 20px; border-radius: 12px;
-            font-weight: bold; font-size: 14px;
-            display: flex; align-items: center; gap: 5px;
-            animation: glow 2s infinite;
-        }
-
-        /* PARTICLES */
-        .particle {
-            position: absolute; pointer-events: none;
-            color: var(--accent-green); font-weight: bold; font-size: 1.5rem;
-            animation: floatUp 0.8s ease-out forwards;
-            z-index: 99;
-        }
-
-        @keyframes floatUp { to { transform: translateY(-100px); opacity: 0; } }
-        @keyframes pulseBtn { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.02); } }
-        @keyframes glow { 0%, 100% { box-shadow: 0 0 5px #f59e0b; } 50% { box-shadow: 0 0 20px #f59e0b; } }
+        @keyframes rotateBg { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
 
     </style>
 </head>
@@ -188,212 +158,278 @@
     
     <div id="screen-home" class="screen active">
         <div class="squad-header">
-            <div class="squad-title">YOUR SQUAD</div>
-            <div class="squad-name" id="squad-name">Squad #007</div>
-            <div class="squad-timer">⏳ Reset in 6d 12h</div>
+            <div class="squad-title">ACTIVE SQUAD</div>
+            <div class="squad-name" id="squad-display">Loading...</div>
+            <div class="squad-timer">Next Draw: <span id="reset-timer">...</span></div>
         </div>
 
         <div class="mission-card">
-            <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
-                <span style="font-weight:600;">Daily Mining Goal</span>
-                <span id="goal-text" style="color:var(--accent-green);">0 / 10,000</span>
+            <div style="font-size:18px; font-weight:800; margin-bottom:5px;">Daily Goal</div>
+            <div style="display:flex; justify-content:space-between; font-size:14px; color:var(--text-secondary);">
+                <span>Reach 10,000 pts</span>
+                <span id="progress-text" style="color:var(--accent-green);">0%</span>
             </div>
             <div class="mission-progress">
                 <div class="mission-bar" id="mission-bar"></div>
             </div>
-            <div style="font-size:11px; color:var(--text-secondary); margin-top:8px;">
-                ⬇️ Reach goal to enter Weekly Prize Pool
+            <div style="margin-top:15px; font-size:12px; line-height:1.5; color:#94a3b8;">
+                ⚠️ <b>Rule:</b> You must stay in the game to mine. Auto-clicker stops if you leave.
             </div>
         </div>
 
-        <div class="logs-panel" id="logs-box">
-            </div>
+        <button class="btn-play" onclick="goToGame()">START MINING ⚡</button>
 
-        <button class="btn-play" onclick="goToGame()">START MINING ⛏️</button>
+        <div id="admin-btn" onclick="openAdmin()">🔒</div>
     </div>
 
     <div id="screen-game" class="screen hidden-right">
         <div class="game-header">
-            <button class="btn-back" onclick="goHome()">⬅ Back</button>
-            <div style="font-size:12px; opacity:0.7;">AUTO-MINER v2.0</div>
+            <button onclick="goHome()" style="background:rgba(255,255,255,0.1); border:none; color:#fff; padding:8px 15px; border-radius:8px;">⬅ Exit</button>
+            <div style="font-family:'JetBrains Mono'; font-size:12px; color:var(--accent-green);">LIVE MINING</div>
         </div>
 
-        <div class="score-display">
+        <div style="flex:1; display:flex; flex-direction:column; justify-content:center;">
             <div class="score-val" id="game-score">0</div>
-            <div class="gps-val">⚡ <span id="game-gps">0</span> / sec</div>
-        </div>
-
-        <div class="clicker-area">
-            <button class="clicker-btn" id="clicker-btn">💸</button>
-        </div>
-
-        <div class="boost-panel">
-            <div>
-                <div style="font-weight:bold; font-size:14px;">TURBO CHARGER</div>
-                <div style="font-size:11px; color:var(--text-secondary);">+5 Auto-Clicks/sec</div>
+            <div style="text-align:center; color:#64748b; font-family:'JetBrains Mono';">
+                Speed: <span id="gps-val" style="color:#fff;">0</span> / sec
             </div>
-            <button class="btn-ad" onclick="watchAdBoost()">
-                <span>📺</span> BOOST
+        </div>
+
+        <button class="clicker-btn" id="clicker">💎</button>
+
+        <div class="boost-bar">
+            <div>
+                <div style="font-weight:bold; font-size:14px;">TURBO BOOST</div>
+                <div style="font-size:11px; color:#94a3b8;">+10 Auto-Clicks/sec</div>
+            </div>
+            <button onclick="watchAd()" style="background:var(--accent-gold); color:#000; border:none; padding:10px 20px; border-radius:10px; font-weight:bold; cursor:pointer;">
+                📺 WATCH
             </button>
         </div>
     </div>
 
 </div>
 
+<div id="logs-overlay" class="logs-overlay">
+    <div style="display:flex; justify-content:space-between;">
+        <h3>SQUAD_ACTIVITY_LOG_v1.0</h3>
+        <button onclick="closeAdmin()" style="background:red; color:white; border:none; padding:5px 10px;">X</button>
+    </div>
+    <div class="logs-content" id="real-logs">
+        <div class="log-entry">> System Initialized...</div>
+    </div>
+</div>
+
+<div id="winner-modal" class="winner-modal">
+    <div class="winner-title">🎉 YOU WON!</div>
+    <p>You have been selected in the Lucky Draw!</p>
+    <p style="font-size:12px; color:#aaa;">Prize: ₹50 UPI Cash</p>
+    
+    <input type="text" class="winner-input" placeholder="Enter UPI / Phone Number">
+    
+    <button onclick="claimPrize()" style="background:var(--accent-green); width:100%; padding:15px; border:none; border-radius:10px; font-weight:bold; font-size:18px;">CLAIM PRIZE ➡️</button>
+</div>
+
 <script>
-    // --- 1. STATE & INIT ---
+    // --- 1. CORE LOGIC ---
     let state = {
         score: 0,
         gps: 0,
-        squadId: null,
-        dailyGoal: 10000,
-        userId: "User" + Math.floor(Math.random()*1000)
+        squadId: 0,
+        lastReset: Date.now(),
+        enteredPool: false
     };
 
     // Load Data
-    const saved = localStorage.getItem('squadMinerData');
-    if(saved) {
-        state = { ...state, ...JSON.parse(saved) };
-    } else {
-        // Assign Random Squad on First Join
-        state.squadId = Math.floor(Math.random() * 100) + 1;
-        saveData();
+    const saved = localStorage.getItem('squadMinerV3');
+    if(saved) state = { ...state, ...JSON.parse(saved) };
+
+    // --- 2. SQUAD SYSTEM (Deterministic) ---
+    // Generates the same Squad ID for everyone based on the current week
+    function getWeeklySquadId() {
+        const now = new Date();
+        // Create a unique seed based on Year + Week Number
+        const oneJan = new Date(now.getFullYear(), 0, 1);
+        const numberOfDays = Math.floor((now - oneJan) / (24 * 60 * 60 * 1000));
+        const weekNum = Math.ceil((now.getDay() + 1 + numberOfDays) / 7);
+        // Deterministic Math
+        return (weekNum * 13) % 100 + 1; 
+    }
+    state.squadId = getWeeklySquadId();
+    document.getElementById('squad-display').innerText = `Squad #${state.squadId}`;
+
+    // --- 3. LUCKY DRAW LOGIC (7 Days) ---
+    function checkLuckyDraw() {
+        const now = Date.now();
+        const sevenDays = 7 * 24 * 60 * 60 * 1000;
+        
+        if (now - state.lastReset > sevenDays) {
+            // Time for draw!
+            if (state.score > 10000) {
+                // Determine Winner (Random Chance 1 in 5 for demo, adjust as needed)
+                if (Math.random() > 0.8) {
+                    document.getElementById('winner-modal').style.display = 'flex';
+                    logAdmin(`User WON Lucky Draw! Phone request sent.`);
+                }
+            }
+            // Reset Period
+            state.lastReset = now;
+            state.score = 0; // Reset score for new week
+            state.enteredPool = false;
+            saveData();
+        }
+
+        // Timer Display
+        const timeLeft = sevenDays - (now - state.lastReset);
+        const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
+        document.getElementById('reset-timer').innerText = `${days}d left`;
+    }
+    checkLuckyDraw();
+
+    function claimPrize() {
+        const input = document.querySelector('.winner-input').value;
+        if(input.length > 5) {
+            alert("Details sent! We will process your UPI payment shortly.");
+            document.getElementById('winner-modal').style.display = 'none';
+            logAdmin(`Winner Claimed: ${input}`);
+        } else {
+            alert("Please enter valid details.");
+        }
     }
 
-    // Init UI
-    document.getElementById('squad-name').innerText = `Squad #${state.squadId}`;
-    updateHomeProgress();
-    
-    // Simulate Logs
-    const names = ["Alex", "CryptoKing", "Sarah", "Miner99", "Elon", "Doge"];
-    const actions = ["joined squad", "reached 10k", "mined 500", "boosted GPS"];
-    
-    setInterval(() => {
-        const logBox = document.getElementById('logs-box');
-        const line = document.createElement('div');
-        line.className = 'log-line';
-        line.innerText = `> ${names[Math.floor(Math.random()*names.length)]} ${actions[Math.floor(Math.random()*actions.length)]}`;
-        logBox.appendChild(line);
-        if(logBox.children.length > 6) logBox.removeChild(logBox.firstChild);
-    }, 2500);
-
-
-    // --- 2. NAVIGATION ---
+    // --- 4. NAVIGATION ---
     function goToGame() {
-        switchScreen('screen-home', 'screen-game', 'left');
-        startGameLoop();
+        document.getElementById('screen-home').classList.remove('active');
+        document.getElementById('screen-home').classList.add('hidden-left');
+        
+        document.getElementById('screen-game').classList.remove('hidden-right');
+        document.getElementById('screen-game').classList.add('active');
+        
+        startGameLoop(); // START MINING
     }
 
     function goHome() {
-        switchScreen('screen-game', 'screen-home', 'right');
-        saveData(); // Sync on exit
+        document.getElementById('screen-game').classList.remove('active');
+        document.getElementById('screen-game').classList.add('hidden-right');
+        
+        document.getElementById('screen-home').classList.remove('hidden-left');
+        document.getElementById('screen-home').classList.add('active');
+
+        stopGameLoop(); // STOP MINING (Anti-Cheat)
+        saveData();
     }
 
-    function switchScreen(fromId, toId, direction) {
-        const from = document.getElementById(fromId);
-        const to = document.getElementById(toId);
-        
-        from.classList.remove('active');
-        from.classList.add(direction === 'left' ? 'hidden-left' : 'hidden-right');
-        
-        to.classList.remove('hidden-left');
-        to.classList.remove('hidden-right');
-        to.classList.add('active');
-    }
-
-    // --- 3. GAME LOGIC ---
-    const scoreEl = document.getElementById('game-score');
-    const gpsEl = document.getElementById('game-gps');
-    const clicker = document.getElementById('clicker-btn');
-
-    // Audio Context
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    function playSound() {
-        if(audioCtx.state === 'suspended') audioCtx.resume();
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.connect(gain); gain.connect(audioCtx.destination);
-        osc.frequency.setValueAtTime(600 + Math.random()*200, audioCtx.currentTime);
-        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-        osc.start(); osc.stop(audioCtx.currentTime + 0.1);
-    }
-
-    // Click Handler
-    function handleClick(e) {
-        state.score++;
-        updateGameUI();
-        playSound();
-        
-        // Particle
-        const p = document.createElement('div');
-        p.className = 'particle';
-        p.innerText = "+1";
-        p.style.left = e.clientX + "px";
-        p.style.top = e.clientY + "px";
-        document.body.appendChild(p);
-        setTimeout(() => p.remove(), 800);
-        
-        // Save progress periodically
-        if(state.score % 10 === 0) saveData();
-    }
-
-    clicker.addEventListener('mousedown', handleClick);
-    clicker.addEventListener('touchstart', (e) => { e.preventDefault(); handleClick(e.touches[0]); });
-
-    // Auto-Miner Loop
+    // --- 5. GAME ENGINE ---
     let gameInterval;
+    const scoreEl = document.getElementById('game-score');
+    const gpsEl = document.getElementById('gps-val');
+
     function startGameLoop() {
-        updateGameUI();
         if(gameInterval) clearInterval(gameInterval);
-        
         gameInterval = setInterval(() => {
             if(state.gps > 0) {
                 state.score += state.gps;
-                updateGameUI();
+                updateUI();
             }
         }, 1000);
     }
 
-    function updateGameUI() {
-        scoreEl.innerText = Math.floor(state.score).toLocaleString();
-        gpsEl.innerText = state.gps;
-        updateHomeProgress(); // Update home screen bar too
+    function stopGameLoop() {
+        // CRITICAL: Stop adding score when user leaves screen
+        if(gameInterval) clearInterval(gameInterval);
     }
 
-    function updateHomeProgress() {
-        const pct = Math.min(100, (state.score / state.dailyGoal) * 100);
+    // Manual Click
+    document.getElementById('clicker').addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        state.score++;
+        updateUI();
+        
+        // Visual Pop
+        const btn = document.getElementById('clicker');
+        btn.style.transform = "scale(0.9)";
+        setTimeout(() => btn.style.transform = "scale(1)", 50);
+    });
+    
+    document.getElementById('clicker').addEventListener('mousedown', () => {
+        state.score++;
+        updateUI();
+    });
+
+    function updateUI() {
+        // Game Screen
+        scoreEl.innerText = Math.floor(state.score).toLocaleString();
+        gpsEl.innerText = state.gps;
+
+        // Home Screen Progress
+        const pct = Math.min(100, (state.score / 10000) * 100);
         document.getElementById('mission-bar').style.width = pct + "%";
-        document.getElementById('goal-text').innerText = `${Math.floor(state.score).toLocaleString()} / 10,000`;
+        document.getElementById('progress-text').innerText = Math.floor(pct) + "%";
+
+        // Check Pool Entry
+        if(state.score >= 10000 && !state.enteredPool) {
+            state.enteredPool = true;
+            logAdmin(`Member entered Prize Pool (Squad #${state.squadId})`);
+        }
     }
 
     function saveData() {
-        localStorage.setItem('squadMinerData', JSON.stringify(state));
-        // Mock Server Sync
-        // fetch('/api/sync', { method:'POST', body: JSON.stringify(state) });
+        localStorage.setItem('squadMinerV3', JSON.stringify(state));
     }
 
-    // --- 4. AD BOOST INTEGRATION ---
-    function watchAdBoost() {
-        if (typeof show_10572322 === 'function') {
-            show_10572322().then(() => {
-                // REWARD: +5 GPS Permanent
-                state.gps += 5;
-                state.score += 100; // Bonus cash
-                updateGameUI();
-                saveData();
-                alert("BOOST ACTIVATED! +5 Auto-Clicks/sec Added.");
-            }).catch(e => {
-                console.log("Ad Error", e);
-                // Fallback for testing
-                state.gps += 5;
-                updateGameUI();
-                alert("Test Boost Applied (+5 GPS)");
-            });
+    // --- 6. ADMIN SYSTEM ---
+    function openAdmin() {
+        const pass = prompt("Enter Admin Password:");
+        if(pass === "SahastraraBot") {
+            document.getElementById('logs-overlay').style.display = 'flex';
+            loadFakeLogs();
         } else {
-            alert("Ad SDK loading... Try again in 5s.");
+            alert("Access Denied");
         }
     }
+
+    function closeAdmin() {
+        document.getElementById('logs-overlay').style.display = 'none';
+    }
+
+    function logAdmin(msg) {
+        const box = document.getElementById('real-logs');
+        const div = document.createElement('div');
+        div.className = 'log-entry';
+        div.innerText = `> ${new Date().toLocaleTimeString()} : ${msg}`;
+        box.prepend(div);
+    }
+
+    function loadFakeLogs() {
+        // Pre-fill some data to look active
+        logAdmin(`Squad #${state.squadId} active members: 84/100`);
+        logAdmin(`System integrity check: OK`);
+        logAdmin(`User_9921 just won previous draw`);
+    }
+
+    // --- 7. ADS ---
+    function watchAd() {
+        if (typeof show_10572322 === 'function') {
+            show_10572322().then(() => {
+                state.gps += 10;
+                saveData();
+                updateUI();
+                alert("Boost Active! +10 GPS");
+                logAdmin("User watched Ad. Boost applied.");
+            }).catch(e => {
+                // Fallback for testing
+                console.log(e);
+                state.gps += 10; 
+                updateUI();
+                alert("Test Boost (+10 GPS)");
+            });
+        } else {
+            alert("Ad Loading... Please wait.");
+        }
+    }
+
+    // Init
+    updateUI();
 
 </script>
 </body>
