@@ -9,11 +9,11 @@ from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 # 👇 CONFIGURATION
 # ==========================================
 # 1. Get this from @BotFather
-BOT_TOKEN = "YOUR_BOT_TOKEN_HERE" 
+BOT_TOKEN = "8187983113:AAGrmR7j8ElIBueWm2MvwSZV5l6a4Ff6E2k" 
 
 # 2. Your Cloud URL (e.g., https://my-app-name.onrender.com)
 # DO NOT put a slash (/) at the end.
-APP_URL = "https://YOUR-APP-URL.com"
+APP_URL = "https://lotus1.onrender.com"
 # ==========================================
 
 # Setup: Define the exact folder where this script lives
@@ -118,3 +118,4 @@ if __name__ == "__main__":
     
     # Start Bot in the main thread
     run_bot()
+
