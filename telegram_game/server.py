@@ -98,13 +98,15 @@ def send_welcome(message):
         reply_markup=markup
     )
 
+# ... (Keep all your imports and bot logic the same) ...
+
 # --- RUNNING BOTH ---
 def run_flask():
-    # Runs the web server
-    app.run(host="0.0.0.0", port=5000, debug=False, use_reloader=False)
+    # UPDATE: Use the PORT provided by the cloud, or default to 5000 locally
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
 
 def run_bot():
-    # Runs the bot listener
     print("Bot is polling...")
     bot.infinity_polling()
 
