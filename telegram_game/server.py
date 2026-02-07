@@ -1,27 +1,34 @@
-import telebot
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
-from flask import Flask, send_from_directory, request, jsonify
+import os
 import threading
 import json
-import os
+import telebot
+from flask import Flask, send_from_directory, request, jsonify
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 
 # ==========================================
-# 👇 CONFIGURATION (FILL THESE IN CAREFULLY)
+# 👇 CONFIGURATION
 # ==========================================
-BOT_TOKEN = "8587196149:AAHUXp6ihV6lGrGdBiUkD2btujKHK1-I4dM"  # e.g., "123456:ABC-DEF..."
-APP_URL = "https://lotus1.onrender.com" # e.g., "https://my-app.onrender.com"
+# 1. Get this from @BotFather
+BOT_TOKEN = "YOUR_BOT_TOKEN_HERE" 
+
+# 2. Your Cloud URL (e.g., https://my-app-name.onrender.com)
+# DO NOT put a slash (/) at the end.
+APP_URL = "https://YOUR-APP-URL.com"
 # ==========================================
 
-# Setup Paths (Fixes "Internal Server Error" by finding the exact file location)
+# Setup: Define the exact folder where this script lives
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+
+# Setup Flask: Tell it to look for HTML files in the BASE_DIR
 app = Flask(__name__, static_folder=BASE_DIR)
 
 # Setup Bot
 bot = telebot.TeleBot(BOT_TOKEN)
 
-# Database File Path
-DB_FILE = os.path.join(BASE_DIR, "user_data.json")
+# Database File (Saves user data in the same folder)
+DB_FILE = os.path.join(BASE_DIR, "squad_data.json")
 
+# --- DATABASE FUNCTIONS ---
 def load_db():
     if not os.path.exists(DB_FILE): return {}
     try:
@@ -34,63 +41,80 @@ def save_db(data):
     except Exception as e:
         print(f"Database Error: {e}")
 
-# --- FLASK ROUTES ---
+# --- WEB ROUTES (The Game) ---
 
 @app.route('/')
-def index():
-    # This tries to send index.html from the SAME folder as this script
+def home():
+    """Serves the game file"""
     try:
+        # This sends the index.html file from the current directory
         return send_from_directory(BASE_DIR, 'index.html')
     except Exception as e:
-        # If this fails, it will print the exact error in your cloud logs
-        print(f"ERROR LOADING FILE: {e}")
-        return f"CRITICAL ERROR: Could not find index.html. Details: {e}", 500
+        return f"<h1>Error: Could not find index.html</h1><p>Debug info: Looking in {BASE_DIR}</p><p>Error: {e}</p>", 500
+
+@app.route('/<path:filename>')
+def serve_static(filename):
+    """Serves any other static files (images, css, js) if you add them later"""
+    return send_from_directory(BASE_DIR, filename)
 
 @app.route('/api/sync', methods=['POST'])
 def sync_data():
+    """Saves game progress to the server"""
     try:
         data = request.json
         user_id = str(data.get('userId', 'unknown'))
+        
+        # Simple Logic: Save data to JSON
         db = load_db()
         db[user_id] = data
         save_db(db)
+        
         return jsonify({"status": "success"}), 200
     except Exception as e:
         print(f"Sync Error: {e}")
         return jsonify({"error": str(e)}), 500
 
-# --- BOT ROUTES ---
+# --- TELEGRAM BOT ROUTES ---
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     try:
-        user_name = message.from_user.first_name
+        user_first_name = message.from_user.first_name
+        
+        # Create the "Play" Button
         markup = InlineKeyboardMarkup()
-        # The WebApp button
-        markup.add(InlineKeyboardButton(text="⛏️ Play Squad Miner", web_app=WebAppInfo(url=APP_URL)))
+        btn = InlineKeyboardButton(text="⛏️ Open Squad Miner", web_app=WebAppInfo(url=APP_URL))
+        markup.add(btn)
         
         bot.reply_to(message, 
-            f"👋 Welcome {user_name}!\n\nClick below to start mining crypto points.",
-            reply_markup=markup
+            f"👋 <b>Welcome, {user_first_name}!</b>\n\n"
+            "Join your Squad and start mining to win the Weekly Prize Pool.\n"
+            "<i>Tap the button below to start.</i>",
+            reply_markup=markup,
+            parse_mode="HTML"
         )
+        print(f"Sent welcome message to {user_first_name}")
     except Exception as e:
         print(f"Bot Error: {e}")
 
-# --- RUNNER ---
+# --- SERVER RUNNER ---
 
 def run_flask():
-    # Cloud servers provide a PORT env var. If missing, use 5000.
+    # Cloud servers provide a PORT variable. If not found, use 5000.
     port = int(os.environ.get("PORT", 5000))
+    # '0.0.0.0' allows external access (required for cloud)
     app.run(host="0.0.0.0", port=port)
 
 def run_bot():
-    bot.remove_webhook() # Clears old issues
+    # Remove webhook to prevent conflicts with polling
+    bot.remove_webhook()
+    print("Bot started polling...")
     bot.infinity_polling()
 
 if __name__ == "__main__":
-    # Run Flask in a separate thread
-    t = threading.Thread(target=run_flask)
-    t.start()
+    # Start Flask in a background thread
+    flask_thread = threading.Thread(target=run_flask)
+    flask_thread.start()
     
-    # Run Bot in main thread
+    # Start Bot in the main thread
     run_bot()
