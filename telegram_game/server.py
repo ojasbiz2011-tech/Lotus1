@@ -1,81 +1,116 @@
-from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
-import uvicorn
+import telebot
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+from flask import Flask, render_template, request, jsonify
+import threading
+import json
 import os
-from typing import List, Dict
 
-app = FastAPI()
+# --- CONFIGURATION ---
+# 1. Get token from @BotFather
+BOT_TOKEN = "YOUR_BOT_TOKEN_HERE"
 
-# --- DATABASE (In-Memory) ---
-# Keeps track of money/ads. Reset on restart.
-users = {}
-GLOBAL_POOL = 0.00 
-RECENT_LOGS = [] 
+# 2. You need an HTTPS URL for the Mini App. 
+# If testing locally, run 'ngrok http 5000' and paste that URL here.
+# If hosted on cloud, paste your cloud URL (e.g., https://my-app.onrender.com)
+# DO NOT include a trailing slash (e.g. no / at end)
+APP_URL = "https://YOUR-APP-URL.com" 
 
-# --- FOLDER DETECTION ---
-if os.path.exists("templates"):
-    templates = Jinja2Templates(directory="templates")
-else:
-    templates = Jinja2Templates(directory=".")
+# --- SETUP ---
+bot = telebot.TeleBot(BOT_TOKEN)
+app = Flask(__name__, template_folder='.') # Looks for index.html in same folder
 
-@app.get("/", response_class=HTMLResponse)
-async def read_root(request: Request):
-    # This serves your new "All-in-One" index.html
-    return templates.TemplateResponse("index.html", {"request": request})
+# Simple JSON Database for "Cloud" Storage
+DB_FILE = "user_data.json"
 
-# --- ADS & WALLET ENDPOINTS ---
-# These are still needed for your ad revenue logic
-
-@app.post("/api/ads/confirm")
-async def confirm_ad(req: Request):
-    global GLOBAL_POOL
-    data = await req.json()
-    uid = data.get("user_id")
-    # Simple name extraction
-    name = data.get("first_name", f"User {uid}") 
-
-    if uid not in users:
-        users[uid] = {"wallet": 0.0, "ads_watched": 0, "name": name}
-    
-    users[uid]["ads_watched"] += 1
-    
-    # Add money to pool (Logic remains same)
-    added_amount = 0.10
-    GLOBAL_POOL += added_amount
-    
-    log_entry = f"{name} added ₹{added_amount:.2f}"
-    RECENT_LOGS.insert(0, log_entry) 
-    if len(RECENT_LOGS) > 20:
-        RECENT_LOGS.pop()
-        
-    return {"status": "ok", "new_pool": GLOBAL_POOL}
-
-@app.get("/api/user/{user_id}")
-def get_user(user_id: int):
-    # Leaderboard Logic
-    sorted_users = sorted(users.values(), key=lambda x: x['ads_watched'], reverse=True)
-    user_data = users.get(user_id, {"wallet": 0.0, "ads_watched": 0, "name": "You"})
+def load_db():
+    if not os.path.exists(DB_FILE):
+        return {}
     try:
-        rank = sorted_users.index(user_data) + 1
+        with open(DB_FILE, 'r') as f:
+            return json.load(f)
     except:
-        rank = "-"
+        return {}
 
-    return {
-        "ads_watched": user_data["ads_watched"],
-        "rank": rank,
-        "global_pool": round(GLOBAL_POOL, 2),
-        "recent_logs": RECENT_LOGS,
-        "top_players": sorted_users[:5] 
-    }
+def save_db(data):
+    with open(DB_FILE, 'w') as f:
+        json.dump(data, f, indent=4)
 
-# --- SUBMIT ENDPOINT ---
-# Used if you want to track solved puzzles for a tournament later
-@app.post("/api/submit_game")
-async def submit_game(req: Request):
-    return {"status": "ok"}
+# --- FLASK WEB ROUTES (The Game) ---
+
+@app.route('/')
+def index():
+    # This serves your HTML file
+    return render_template('index.html')
+
+@app.route('/api/sync', methods=['POST'])
+def sync_data():
+    """Receives data from index.html and saves it to JSON file"""
+    try:
+        data = request.json
+        user_id = str(data.get('userId', 'unknown'))
+        
+        # Load current DB
+        db = load_db()
+        
+        # Update User Data
+        db[user_id] = data
+        
+        # Save back to file
+        save_db(db)
+        
+        return jsonify({"status": "success", "message": "Data saved to cloud"}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/leaderboard', methods=['GET'])
+def get_leaderboard():
+    """Returns top 10 players for the leaderboard"""
+    db = load_db()
+    # Convert dict to list and sort by score
+    players = []
+    for uid, data in db.items():
+        players.append({
+            "name": f"User {uid}", # Or use username if you saved it
+            "score": data.get('score', 0)
+        })
+    
+    # Sort descending
+    players.sort(key=lambda x: x['score'], reverse=True)
+    return jsonify(players[:10])
+
+# --- TELEGRAM BOT ROUTES ---
+
+@bot.message_handler(commands=['start'])
+def send_welcome(message):
+    user_name = message.from_user.first_name
+    
+    # Create the button that opens the game
+    markup = InlineKeyboardMarkup()
+    markup.add(InlineKeyboardButton(
+        text="⛏️ Start Mining", 
+        web_app=WebAppInfo(url=APP_URL)
+    ))
+    
+    bot.reply_to(message, 
+        f"👋 Welcome, {user_name}!\n\n"
+        "Start mining now to enter the Weekly Prize Pool.\n"
+        "Remember: You must stay in the app to mine!",
+        reply_markup=markup
+    )
+
+# --- RUNNING BOTH ---
+def run_flask():
+    # Runs the web server
+    app.run(host="0.0.0.0", port=5000, debug=False, use_reloader=False)
+
+def run_bot():
+    # Runs the bot listener
+    print("Bot is polling...")
+    bot.infinity_polling()
 
 if __name__ == "__main__":
-    # Render assigns a random port. We MUST use it.
-    port = int(os.environ.get("PORT", 8000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    # We use threading to run Flask and Bot at the same time
+    flask_thread = threading.Thread(target=run_flask)
+    flask_thread.start()
+    
+    run_bot()
