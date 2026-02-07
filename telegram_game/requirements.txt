@@ -4,3 +4,5 @@ python-telegram-bot
 pygame
 jinja2
 requests
+Flask
+pyTelegramBotAPI
