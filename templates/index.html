@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Lumina Championship</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0f172a;
+            --glass: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --primary: #6366f1;
+            --accent: #ec4899;
+            --text: #f8fafc;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Outfit', sans-serif; }
+
+        body {
+            background: var(--bg);
+            background-image: radial-gradient(circle at 50% 0%, #1e293b 0%, #0f172a 100%);
+            color: var(--text);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        /* --- UI Components --- */
+        .app-container {
+            width: 100%; max-width: 500px; height: 100%;
+            display: flex; flex-direction: column; padding: 20px; position: relative;
+        }
+
+        header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 20px;
+        }
+        .brand { font-size: 1.5rem; font-weight: 800; background: linear-gradient(to right, var(--primary), var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .status-pill { font-size: 0.8rem; background: var(--glass); padding: 5px 12px; border-radius: 20px; border: 1px solid var(--glass-border); }
+
+        /* --- Screens --- */
+        .screen { display: none; flex-direction: column; height: 100%; }
+        .screen.active { display: flex; }
+
+        /* Lobby */
+        .lobby-card {
+            background: var(--glass); border: 1px solid var(--glass-border);
+            border-radius: 24px; padding: 30px; text-align: center;
+            margin-top: auto; margin-bottom: auto;
+            backdrop-filter: blur(10px);
+        }
+        .hero-icon { font-size: 4rem; margin-bottom: 20px; }
+        
+        .btn-main {
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: white; border: none; padding: 18px; width: 100%;
+            border-radius: 16px; font-size: 1.1rem; font-weight: 700;
+            cursor: pointer; box-shadow: 0 10px 30px rgba(99, 102, 241, 0.3);
+            transition: transform 0.2s;
+        }
+        .btn-main:active { transform: scale(0.96); }
+
+        /* Game Board */
+        .board-wrapper {
+            aspect-ratio: 1; width: 100%;
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px; overflow: hidden;
+            display: grid; grid-template-columns: repeat(8, 1fr);
+        }
+
+        .square {
+            display: flex; justify-content: center; align-items: center;
+            font-size: 2.2rem; cursor: pointer; position: relative;
+        }
+        .sq-light { background: #e2e8f0; color: #1e293b; }
+        .sq-dark { background: #475569; color: #1e293b; } /* Slate colors */
+        .sq-highlight { box-shadow: inset 0 0 0 4px var(--accent); }
+        .piece { z-index: 2; pointer-events: none; }
+
+        .player-info {
+            display: flex; justify-content: space-between; padding: 15px 0;
+            font-weight: 600; opacity: 0.8;
+        }
+
+        /* Loading */
+        .loader {
+            width: 40px; height: 40px; border: 4px solid var(--glass-border);
+            border-top: 4px solid var(--primary); border-radius: 50%;
+            animation: spin 1s linear infinite; margin: 0 auto 20px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <header>
+        <div class="brand">LUMINA ONLINE</div>
+        <div class="status-pill" id="connection-status">Disconnected</div>
+    </header>
+
+    <div id="screen-lobby" class="screen active">
+        <div class="lobby-card">
+            <div class="hero-icon">🏆</div>
+            <h2>World Championship</h2>
+            <p style="color:#94a3b8; margin: 10px 0 30px;">Compete with real players for the grand prize.</p>
+            <button class="btn-main" onclick="findMatch()">FIND OPPONENT</button>
+            <p style="font-size: 0.8rem; margin-top: 20px; color: #64748b;">Server: lotus-q1xy.onrender.com</p>
+        </div>
+    </div>
+
+    <div id="screen-queue" class="screen">
+        <div class="lobby-card">
+            <div class="loader"></div>
+            <h3>Searching...</h3>
+            <p style="color:#94a3b8;">Finding a worthy opponent.</p>
+        </div>
+    </div>
+
+    <div id="screen-game" class="screen">
+        <div class="player-info">
+            <span>👤 Opponent</span>
+            <span id="opp-timer">--:--</span>
+        </div>
+        
+        <div class="board-wrapper" id="chess-board">
+            </div>
+
+        <div class="player-info">
+            <span>👤 You (<span id="my-color">?</span>)</span>
+            <span id="my-timer">--:--</span>
+        </div>
+        
+        <div id="game-msg" style="text-align:center; margin-top:10px; color: var(--accent); font-weight:bold;"></div>
+    </div>
+</div>
+
+<script>
+    // --- Configuration ---
+    // !!! CRITICAL: This connects to your Python Server !!!
+    const SERVER_URL = "https://lotus-q1xy.onrender.com"; 
+    
+    let socket;
+    let game = new Chess();
+    let boardEl = document.getElementById('chess-board');
+    let myColor = 'white'; // 'white' or 'black'
+    let selectedSquare = null;
+    let isMyTurn = false;
+
+    // --- Socket Setup ---
+    function connectServer() {
+        socket = io(SERVER_URL, {
+            transports: ['websocket', 'polling'] // Force robust connection
+        });
+
+        socket.on('connect', () => {
+            document.getElementById('connection-status').innerText = "🟢 Online";
+            document.getElementById('connection-status').style.borderColor = "#4ade80";
+        });
+
+        socket.on('game_start', (data) => {
+            initGame(data.color);
+        });
+
+        socket.on('move_relay', (moveData) => {
+            game.move({ from: moveData.from, to: moveData.to, promotion: 'q' });
+            renderBoard();
+            isMyTurn = true;
+            document.getElementById('game-msg').innerText = "Your Turn";
+        });
+
+        socket.on('opponent_left', () => {
+            alert("Opponent disconnected! You win.");
+            location.reload();
+        });
+    }
+
+    // Initialize Connection immediately
+    connectServer();
+
+    // --- UI Logic ---
+    function switchScreen(id) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+    }
+
+    function findMatch() {
+        switchScreen('screen-queue');
+        socket.emit('find_match', {});
+    }
+
+    function initGame(color) {
+        myColor = color;
+        game.reset();
+        
+        switchScreen('screen-game');
+        document.getElementById('my-color').innerText = color.charAt(0).toUpperCase() + color.slice(1);
+        
+        // Setup orientation logic
+        isMyTurn = (color === 'white');
+        document.getElementById('game-msg').innerText = isMyTurn ? "Your Turn" : "Opponent's Turn";
+        
+        renderBoard();
+    }
+
+    // --- Chess Logic ---
+    const pieces = {
+        'p': '♟', 'r': '♜', 'n': '♞', 'b': '♝', 'q': '♛', 'k': '♚',
+        'P': '♙', 'R': '♖', 'N': '♘', 'B': '♗', 'Q': '♕', 'K': '♔'
+    };
+
+    function renderBoard() {
+        boardEl.innerHTML = '';
+        const board = game.board();
+
+        // If I play Black, rotate board loop
+        const isWhite = (myColor === 'white');
+        
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                // Calculation for board rotation
+                let row = isWhite ? r : 7 - r;
+                let col = isWhite ? c : 7 - c;
+                
+                const squareName = String.fromCharCode(97 + col) + (8 - row);
+                const squareDiv = document.createElement('div');
+                
+                // Color Logic
+                const isLight = (row + col) % 2 === 0;
+                squareDiv.className = `square ${isLight ? 'sq-light' : 'sq-dark'}`;
+                
+                if (selectedSquare === squareName) squareDiv.classList.add('sq-highlight');
+
+                // Piece Logic
+                const piece = board[row][col];
+                if (piece) {
+                    const pSpan = document.createElement('span');
+                    pSpan.className = 'piece';
+                    pSpan.innerText = pieces[piece.color === 'w' ? piece.type.toUpperCase() : piece.type];
+                    // Visual styling for colors
+                    pSpan.style.color = piece.color === 'w' ? '#fff' : '#000';
+                    pSpan.style.textShadow = piece.color === 'w' ? '0 0 5px rgba(0,0,0,0.5)' : 'none';
+                    squareDiv.appendChild(pSpan);
+                }
+
+                squareDiv.onclick = () => handleSquareClick(squareName);
+                boardEl.appendChild(squareDiv);
+            }
+        }
+    }
+
+    function handleSquareClick(square) {
+        if (!isMyTurn) return;
+
+        // Selection
+        if (!selectedSquare) {
+            const piece = game.get(square);
+            if (piece && ((piece.color === 'w' && myColor === 'white') || (piece.color === 'b' && myColor === 'black'))) {
+                selectedSquare = square;
+                renderBoard();
+            }
+            return;
+        }
+
+        // Move Attempt
+        const move = {
+            from: selectedSquare,
+            to: square,
+            promotion: 'q' // Auto-queen
+        };
+
+        try {
+            const validMove = game.move(move); // Returns null if invalid
+            
+            if (validMove) {
+                // Send to Server
+                socket.emit('make_move', move);
+                
+                selectedSquare = null;
+                isMyTurn = false;
+                document.getElementById('game-msg').innerText = "Opponent's Turn";
+                renderBoard();
+            } else {
+                // Invalid move, maybe selecting different piece?
+                const piece = game.get(square);
+                if (piece && piece.color === myColor.charAt(0)) {
+                    selectedSquare = square;
+                } else {
+                    selectedSquare = null;
+                }
+                renderBoard();
+            }
+        } catch (e) {
+            selectedSquare = null;
+            renderBoard();
+        }
+    }
+
+</script>
+</body>
+</html>
