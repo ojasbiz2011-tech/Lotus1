@@ -3,4 +3,3 @@ flask-socketio
 python-chess
 eventlet
 gunicorn
-
