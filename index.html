@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Chess Monetize</title>
+    
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
+    <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
+
+    <style>
+        :root {
+            --glass-bg: rgba(255, 255, 255, 0.1);
+            --glass-border: 1px solid rgba(255, 255, 255, 0.2);
+            --glass-blur: blur(12px);
+            --neon-accent: #00f2ff;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        /* Glassmorphism Container */
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border: var(--glass-border);
+            border-radius: 20px;
+            padding: 20px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        /* Views */
+        .view { display: none; }
+        .active-view { display: block; animation: fadeIn 0.5s; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Home View Specifics */
+        h1.hero-text {
+            font-family: 'Consolas', monospace;
+            font-size: 24px;
+            margin-bottom: 30px;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+        }
+
+        /* Buttons */
+        .btn-primary {
+            background: linear-gradient(90deg, #ff00cc, #333399);
+            border: none;
+            padding: 15px 40px;
+            border-radius: 30px;
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            width: 80%;
+        }
+
+        .btn-primary:active { transform: scale(0.95); }
+        
+        /* Lobby Styles */
+        .user-list {
+            height: 200px;
+            overflow-y: auto;
+            background: rgba(0,0,0,0.2);
+            border-radius: 10px;
+            margin: 20px 0;
+            padding: 10px;
+            list-style: none;
+        }
+        .user-list li {
+            padding: 8px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            display: flex;
+            align-items: center;
+        }
+        .status-dot {
+            width: 8px; height: 8px;
+            background: #00ff88;
+            border-radius: 50%;
+            margin-right: 10px;
+            box-shadow: 0 0 8px #00ff88;
+        }
+
+        /* Chess Board Customization */
+        #myBoard {
+            width: 100%;
+            margin: 0 auto;
+        }
+        .status-bar {
+            margin-top: 15px;
+            font-family: 'Consolas', monospace;
+            color: var(--neon-accent);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="glass-panel">
+        
+        <div id="view-home" class="view active-view">
+            <h1 class="hero-text">Monetize your<br>chess skills</h1>
+            <button class="btn-primary" onclick="startApp()">Start</button>
+        </div>
+
+        <div id="view-lobby" class="view">
+            <h2>Tournament #<span id="lobby-id">...</span></h2>
+            <div style="font-size: 12px; opacity: 0.7;">MAX 128 PLAYERS</div>
+            
+            <ul id="online-users" class="user-list">
+                </ul>
+
+            <button class="btn-primary" id="play-btn" onclick="findMatch()">Play ▶️</button>
+            <p id="search-status" style="font-size: 12px; margin-top:10px; min-height:15px;"></p>
+        </div>
+
+        <div id="view-game" class="view">
+            <div style="display:flex; justify-content:space-between; margin-bottom: 10px;">
+                <span id="opponent-name">Opponent</span>
+                <span id="game-result"></span>
+            </div>
+            <div id="myBoard"></div>
+            <div class="status-bar" id="game-status">Your Turn</div>
+            <button onclick="location.reload()" style="margin-top:20px; background:transparent; border:1px solid white; color:white; padding:5px 10px; border-radius:5px; cursor:pointer;">Exit</button>
+        </div>
+
+    </div>
+
+    <script>
+        // Init Telegram App
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        const user = tg.initDataUnsafe.user;
+        const username = user ? user.first_name : "Guest";
+
+        // Socket Connection (Auto-detects URL if hosted on same domain, else put explicit URL)
+        // const socket = io("https://lotus1-hy5w.onrender.com"); 
+        const socket = io(); // Defaults to current host
+
+        let board = null;
+        let game = new Chess();
+        let playerColor = 'white';
+        let isMyTurn = false;
+
+        // --- Navigation ---
+        function showView(viewId) {
+            document.querySelectorAll('.view').forEach(el => el.classList.remove('active-view'));
+            document.getElementById(viewId).classList.add('active-view');
+        }
+
+        // --- Logic ---
+        function startApp() {
+            socket.emit('join_app', { username: username });
+        }
+
+        function findMatch() {
+            document.getElementById('play-btn').disabled = true;
+            document.getElementById('play-btn').style.opacity = "0.5";
+            socket.emit('find_match');
+        }
+
+        // --- Socket Events ---
+        socket.on('joined_lobby', (data) => {
+            document.getElementById('lobby-id').innerText = data.lobby_id;
+            showView('view-lobby');
+        });
+
+        socket.on('update_user_list', (data) => {
+            const list = document.getElementById('online-users');
+            list.innerHTML = "";
+            data.users.forEach(u => {
+                const li = document.createElement('li');
+                li.innerHTML = `<div class="status-dot"></div> ${u}`;
+                list.appendChild(li);
+            });
+        });
+
+        socket.on('match_status', (data) => {
+            document.getElementById('search-status').innerText = "Scanning for opponents...";
+        });
+
+        socket.on('game_start', (data) => {
+            showView('view-game');
+            playerColor = data.color; // 'white' or 'black'
+            document.getElementById('opponent-name').innerText = "Vs: " + data.opponent;
+            
+            isMyTurn = (playerColor === 'white');
+            updateStatus();
+
+            // Init Board
+            const config = {
+                draggable: true,
+                position: 'start',
+                orientation: playerColor,
+                onDragStart: onDragStart,
+                onDrop: onDrop,
+                onSnapEnd: onSnapEnd
+            };
+            board = Chessboard('myBoard', config);
+            
+            // Resize board for responsiveness
+            window.setTimeout(() => { board.resize() }, 200);
+        });
+
+        socket.on('move_made', (data) => {
+            game.load(data.fen);
+            board.position(data.fen);
+            
+            // Determine turn based on FEN
+            const turnColor = game.turn() === 'w' ? 'white' : 'black';
+            isMyTurn = (turnColor === playerColor);
+            updateStatus();
+        });
+
+        socket.on('game_over', (data) => {
+            document.getElementById('game-status').innerText = "GAME OVER: " + data.result;
+            isMyTurn = false;
+        });
+
+        // --- Chess Board Logic ---
+        function onDragStart (source, piece, position, orientation) {
+            if (game.game_over()) return false;
+            if (!isMyTurn) return false;
+            if ((playerColor === 'white' && piece.search(/^b/) !== -1) ||
+                (playerColor === 'black' && piece.search(/^w/) !== -1)) {
+                return false;
+            }
+        }
+
+        function onDrop (source, target) {
+            // see if the move is legal
+            var move = game.move({
+                from: source,
+                to: target,
+                promotion: 'q' // NOTE: always promote to a queen for simplicity
+            });
+
+            // illegal move
+            if (move === null) return 'snapback';
+
+            // Send move to server
+            socket.emit('make_move', { move: move.from + move.to + (move.promotion || '') });
+            updateStatus();
+        }
+
+        function onSnapEnd () {
+            board.position(game.fen());
+        }
+
+        function updateStatus() {
+            if(isMyTurn) {
+                document.getElementById('game-status').innerText = "Your Move";
+                document.getElementById('game-status').style.color = "#00ff88";
+            } else {
+                document.getElementById('game-status').innerText = "Waiting for Opponent...";
+                document.getElementById('game-status').style.color = "#ff00cc";
+            }
+        }
+    </script>
+</body>
+</html>
