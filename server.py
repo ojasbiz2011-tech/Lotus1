@@ -1,5 +1,5 @@
 import os
-from flask import Flask, request
+from flask import Flask, render_template, request 
 from flask_socketio import SocketIO, emit, join_room, leave_room
 import logging
 
@@ -7,24 +7,26 @@ import logging
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'lumina_secret_key_change_this'
 
-# Initialize SocketIO (Async mode for performance)
+# Initialize SocketIO
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 
-# Telegram Config (As requested)
+# Telegram Config
 TELEGRAM_TOKEN = "8587196149:AAHUXp6ihV6lGrGdBiUkD2btujKHK1-I4dM"
 
-# --- Global State (In-Memory for speed) ---
-waiting_queue = []  # List of socket_ids waiting for a match
-active_games = {}   # {game_id: {white: sid, black: sid, board: fen}}
-players = {}        # {sid: {game_id: str, color: str}}
+# --- Global State ---
+waiting_queue = []
+active_games = {}
+players = {}
 
 logging.basicConfig(level=logging.INFO)
 
+# !!! THIS IS THE FIX !!!
 @app.route('/')
 def index():
-    return "Lumina Chess Server is Running. Connect via WebSocket."
+    # Instead of returning text, we serve the HTML file
+    return render_template('index.html') 
 
-# --- WebSocket Events ---
+# --- WebSocket Events (Keep the rest the same) ---
 
 @socketio.on('connect')
 def on_connect():
@@ -34,6 +36,46 @@ def on_connect():
 @socketio.on('disconnect')
 def on_disconnect():
     sid = request.sid
+    if sid in waiting_queue:
+        waiting_queue.remove(sid)
+    if sid in players:
+        game_id = players[sid]['game_id']
+        if game_id in active_games:
+            game = active_games[game_id]
+            opponent = game['black'] if game['white'] == sid else game['white']
+            if opponent:
+                socketio.emit('opponent_left', room=opponent)
+            del active_games[game_id]
+        del players[sid]
+
+@socketio.on('find_match')
+def find_match(data):
+    sid = request.sid
+    if sid in waiting_queue: return
+    if len(waiting_queue) > 0:
+        opponent_sid = waiting_queue.pop(0)
+        game_id = f"game_{sid}_{opponent_sid}"
+        active_games[game_id] = {'white': opponent_sid, 'black': sid, 'fen': 'start'}
+        players[opponent_sid] = {'game_id': game_id, 'color': 'white'}
+        players[sid] = {'game_id': game_id, 'color': 'black'}
+        socketio.emit('game_start', {'game_id': game_id, 'color': 'white'}, room=opponent_sid)
+        socketio.emit('game_start', {'game_id': game_id, 'color': 'black'}, room=sid)
+    else:
+        waiting_queue.append(sid)
+
+@socketio.on('make_move')
+def handle_move(data):
+    sid = request.sid
+    if sid in players:
+        game_id = players[sid]['game_id']
+        game = active_games.get(game_id)
+        if game:
+            opponent = game['black'] if game['white'] == sid else game['white']
+            socketio.emit('move_relay', data, room=opponent)
+
+if __name__ == '__main__':
+    port = int(os.environ.get("PORT", 5000))
+    socketio.run(app, host='0.0.0.0', port=port)
     print(f"Player disconnected: {sid}")
 
     # Remove from queue if waiting
