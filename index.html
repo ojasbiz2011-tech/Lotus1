@@ -201,7 +201,7 @@
             document.getElementById('search-status').innerText = "Scanning for opponents...";
         });
 
-        socket.on('game_start', (data) => {
+                socket.on('game_start', (data) => {
             showView('view-game');
             playerColor = data.color; // 'white' or 'black'
             document.getElementById('opponent-name').innerText = "Vs: " + data.opponent;
@@ -214,6 +214,9 @@
                 draggable: true,
                 position: 'start',
                 orientation: playerColor,
+                // --- ADD THIS LINE BELOW ---
+                pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png',
+                // ---------------------------
                 onDragStart: onDragStart,
                 onDrop: onDrop,
                 onSnapEnd: onSnapEnd
